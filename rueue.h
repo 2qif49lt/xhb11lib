@@ -86,14 +86,19 @@ public:
     }
     void reserve(size_type count);
 
-    reference operator[](size_type idx);
-    const_reference operatoro[](size_type idx)const;
+    reference operator[](size_type idx){
+         return _impl.data[_impl.beg + idx]; 
+    }
+    const_reference operatoro[](size_type idx)const{
+         return _impl.data[_impl.beg + idx];
+    }
 
     reference at(size_type idx){
-        
+        if(idx >= size()) throw std::out_of_range("out of range");
+        return _impl.data[_impl.beg + idx];
     }
     const_reference at(size_type idx){
-        if(size() <= idx) throw std::out_of_range("out of range");
+        if(idx >= size()) throw std::out_of_range("out of range");
         return _impl.data[_impl.beg + idx];
     }
 
