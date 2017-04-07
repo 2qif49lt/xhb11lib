@@ -27,14 +27,23 @@ public:
     using pointer = T*;
     using const_reference = const T&;
     using const_point = const T*;
+
+    using iterator = T*;
+    using const_iterator = const T*;
+
 private:
     using alloc_traits = std::allocator_traits<allocator_type>;
 
 public:
     rueue() = default;
     
-    rueue(const my_type& other);
-    rueue(my_type&& other);
+    rueue(const my_type& other){
+        alloc_init(other.size());
+        copy_init(other);
+    }
+    rueue(my_type&& other):_impl(std::move(other._impl)){
+        other._impl = {};
+    }
     
     ~rueue(){
         destory();
@@ -178,9 +187,11 @@ public:
     }
 
     reference operator[](size_type idx){
+         if(idx >= size()) throw std::out_of_range("out of range");
          return _impl.data[mask(_impl.beg + idx)]; 
     }
     const_reference operatoro[](size_type idx)const{
+        if(idx >= size()) throw std::out_of_range("out of range");
          return _impl.data[mask(_impl.beg + idx)];
     }
 
@@ -188,7 +199,7 @@ public:
         if(idx >= size()) throw std::out_of_range("out of range");
         return _impl.data[mask(_impl.beg + idx)];
     }
-    const_reference at(size_type idx){
+    const_reference at(size_type idx)const{
         if(idx >= size()) throw std::out_of_range("out of range");
         return _impl.data[mask(_impl.beg + idx)];
     }
@@ -197,12 +208,17 @@ private:
     size_type mask(size_type idx)const{
         return idx & (_impl.cap - 1);
     }
-
-    size_type count_ceil_power(size_type num){
+    size_type size_policy(size_type count)const{
+         if(count < 32) 
+            return  32;
+        else
+            return count_ceil_power(count);
+    }
+    size_type count_ceil_power(size_type num)const{
         return size_type(1) << count_leading_zero(num - 1);
     }
 
-    size_type count_leading_zero(size_type num){
+    size_type count_leading_zero(size_type num)const{
         size_type c = 0;
         while(num){
             c++;
@@ -215,11 +231,21 @@ private:
           reserve(size() + count);
         }
     }
+    void alloc_init(size_type count){
+        count = size_policy(count);
+        _impl.data = alloc_traits::allocate(_impl,count);
+        _impl.cap = count;
+        _impl.beg = 0;
+        _impl.end = 0;
+    }
+    void copy_init(const my_type& other){
+        for(size_type idx = 0; idx != other.size(); ++idx){
+            alloc_traits::construct(_impl,_impl.data + mask(_impl.beg + idx),other[idx]);
+        }
+        _impl.end = other.size();
+    }
     void realloc(size_type count){
-        if(count < 32) 
-            count = 32;
-        else
-            count = count_ceil_power(count);
+        count = size_policy(count);
         
         auto new_data = alloc_traits::allocate(_impl,count);
         if(new_data == nullptr) throw std::bad_alloc();
