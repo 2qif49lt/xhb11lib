@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <iterator>
 #include <stdexcept>
+#include <limits>
 
 template < typename T,typename Alloc = std::allocator<T>>
 class rueue final{
@@ -69,8 +70,9 @@ public:
     void assign(size_type count,const value_type& val);
 
     void clear(){
-        destory();
-        _impl = {};
+        destory(_impl.data + beg,_impl.data + end);
+        _impl.beg = 0;
+        _impl.end = 0;
     }
 
     bool empty() const{
@@ -78,13 +80,19 @@ public:
     }
 
     size_type size() const{
-        return _impl.beg - impl.end;
+        return _impl.end - impl.beg;
     }
-
+    size_type max_size()const{
+        return std::numeric_limits<size_type>::max();
+    }
     size_type capacity() const{
         return _impl.cap;
     }
-    void reserve(size_type count);
+    void reserve(size_type count){
+        if(capacity() >= count) return;
+        if(count >= max_size()) throw std::invalid_argument("count is oversize.");
+
+    }
 
     reference operator[](size_type idx){
          return _impl.data[_impl.beg + idx]; 
@@ -120,12 +128,14 @@ private:
         }
         return c;
     }
+    void realloc(size_type count){
+        auto new_data = _imple.allocate(count);
 
+    }
     void destory(point first,point last){
         for(;first != last; ++first){
-            _impl.destory(first);
+            std::allocator_traits<allocator_type>::destroy(_impl,first);
         }
-        _impl.deallcate(_impl.data,_impl.cap);
     }
 };
 #endif // RING_QUEUE_H_
