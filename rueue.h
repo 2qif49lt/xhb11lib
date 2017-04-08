@@ -303,16 +303,120 @@ private:
 
 private:
     template<typename R>
-    class rueue_iterator :public std::iterator<std::random_access_iterator_tag,value_type>{
+    class rueue_iterator :public std::iterator<std::random_access_iterator_tag,typename R::value_type>{
     private:
-        
-    public:
-        using my_base = std::iterator<std::random_access_iterator_tag,value_type>;
-        rueue_iterator() = default;
-        rueue_iterator(const rueue_iterator& other){
+        R* queue = nullptr;
+        size_type idx = 0;
 
+    public:
+        using my_base = std::iterator<std::random_access_iterator_tag,typename R::value_type>;
+        using my_type = rueue_iterator<R>;
+        
+        using value_type = my_base::value_type;
+        using pointer = my_base::pointer;
+        using reference = my_base::reference;
+        using difference_type = my_base::difference_type;
+
+        // the big 5 are all default;
+        my_type() = default;
+        my_type(const my_type&) = default;
+        my_type(my_type&&) = default;
+        my_type& operator=(const my_type&) = default;
+        my_type& operator=(my_type&&) = default;
+        ~my_type() = default;
+
+        my_type(R* r,size_type n):queue(r),idx(n){};
+        
+        value_type& operator*() const{
+            return queue->_impl.data[queue->mask(idx)];
+        }
+
+        value_type* operator->()const{
+            return &queue->_impl.data[queue->mask(idx)];
         }
         
+        // 前
+        my_type& operator++(){
+            idx++;
+            return *this;
+        }
+        my_type& operator--(){
+            idx--;
+            return *this;
+        }
+        // 后
+        my_type operator++(int){
+            auto ret = *this;
+            idx++;
+            return ret;
+        }
+        my_type operator--(int){
+            auto ret = *this;
+            idx--;
+            return ret;
+        }
+
+        my_type& operator+=(difference_type n){
+            idx += n;
+            return *this;
+        }
+
+        my_type& operator-=(difference_type n){
+            idx -= n;
+            return *this;
+        }
+
+        my_type operator+(difference_type n)const{
+            return my_type(queue,idx + n);
+        }
+        my_type operator-(difference_type n)const{
+            return my_type(queue,idx - n);
+        }
+
+        difference_type operator-(const my_type& other)const{
+            return idx - other.idx;
+        }
+
+        bool operator== (const my_type& rhs)const{
+            return idx == rhs.idx;
+        }
+
+        bool operator!= (const my_type& rhs)const{
+            return idx != rhs.idx;
+        }
+
+        bool operator<(const my_type& rhs)const{
+            return idx < rhs.idx;
+        }
+
+        bool operator>(const my_type& rhs)const{
+            return idx > rhs.idx;
+        }
+
+        bool operator<=(const my_type& rhs)const{
+            return idx <= rhs.idx;
+        }
+
+        bool operator>=(const my_type& rhs)const{
+            return idx >= rhs.idx;
+        }
+        //
     };
+
+public:
+    friend class rueue_iterator;
+
+    using iterator = rueue_iterator<my_type>;
+ //   using const_iterator = rueue_iterator<const my_type>;
+
+    iterator begin(){
+        return iterator(this,_impl.beg);
+    }
+
+    iterator end(){
+        return iterator(this,_impl.end);
+    }
+
+    
 };
 #endif // RING_QUEUE_H_
