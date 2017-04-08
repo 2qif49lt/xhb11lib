@@ -1,6 +1,7 @@
 #ifndef RING_QUEUE_H_
 #define RING_QUEUE_H_
 
+// 同时具有vector和list的优点的可自增长高效双向队列。
 #include <memory> // for allocator
 #include <algorithm>
 #include <type_traits>
@@ -45,12 +46,22 @@ public:
         other._impl = {};
     }
     
+    rueue(size_type count){
+        realloc(count);
+        construct_n(count,value_type());
+    }
+    rueue(size_type count,const value_type& val){
+        realloc(count);
+        construct_n(count,val);
+    }
     ~rueue(){
         destory();
         if(_impl.data != nullptr)
+        {  
             alloc_traits::deallocate(_impl,_impl.data,_impl.cap);
-        _impl.data = nullptr;
-        _impl.cap = 0;
+            _impl.data = nullptr;
+            _impl.cap = 0;
+        }
     }
     
     template<typename Iter >
@@ -62,7 +73,7 @@ public:
     rueue& operator=(const my_type& other){
         if(this != &other){
             this->~queue();
-            new(this)rueue(std::begin(other),std::end(other));
+            new(this)rueue(other);
         }
         return *this;
     }
@@ -150,17 +161,13 @@ public:
             void>::value,void>::type
     assign(Iter first,Iter last){
         destroy();
-        reserve(std::distance(first,last));
-        for(;first != last; ++first){
-            push_back(*first);
-        }
+        reserve(count);
+        construct_iter(first,last);
     }
     void assign(size_type count,const value_type& val){
         destroy();
         reserve(count);
-        while(count--){
-            push_back(val);
-        }
+        construct_n(count,val);
     }
 
     void clear(){
@@ -182,7 +189,6 @@ public:
     }
     void reserve(size_type count){
         if(capacity() >= count) return;
-        if(count >= max_size()) throw std::invalid_argument("count is oversize.");
         realloc(count);
     }
 
@@ -244,7 +250,10 @@ private:
         }
         _impl.end = other.size();
     }
+    
     void realloc(size_type count){
+        if(max_size() < count) throw std::invalid_argument("count is oversize.");
+
         count = size_policy(count);
         
         auto new_data = alloc_traits::allocate(_impl,count);
@@ -254,7 +263,7 @@ private:
         auto s = _impl.beg;
 
         for(;s != _impl.end; ++s,++d){
-            alloc_traits::construct(_impl,d,_impl.data[mask(s)]);
+            alloc_traits::construct(_impl,d,std::move(_impl.data[mask(s)]));
         }
        
         if(flase == std::is_move_constructible<value_type>::value)
@@ -269,16 +278,41 @@ private:
         if(new_data != nullptr)
             alloc_traits::deallocate(_impl,new_data,count)
     }
-
+    void construct_n(size_type count,const value_type val){
+        for(size_type idx = 0; idx != count; ++idx)
+            alloc_traits::construct(_impl,_impl.data + mask(idx),val);
+        _impl.end = count;
+    }
+    template<typename Iter>
+    void construct_iter(Iter first,Iter last){
+        for(size_type idx = 0; first != last; ++first,++idx){
+            alloc_traits::construct(_impl,_impl.data + mask(idx),*first);
+        }
+        _impl.end = std::distance(first,last);
+    }
     void destroy(){
-        destroy(_impl.beg,_impl.end);
+        destroy_index(_impl.beg,_impl.end);
         _impl.beg = 0;
         _impl.end = 0;
     }
-    void destroy(size_type first,size_type last){
+    void destroy_index(size_type first,size_type last){
         for(;first != last; ++first){
             alloc_traits::destroy(_impl,_impl.data + mask(first));
         }
     }
+
+private:
+    template<typename R>
+    class rueue_iterator :public std::iterator<std::random_access_iterator_tag,value_type>{
+    private:
+        
+    public:
+        using my_base = std::iterator<std::random_access_iterator_tag,value_type>;
+        rueue_iterator() = default;
+        rueue_iterator(const rueue_iterator& other){
+
+        }
+        
+    };
 };
 #endif // RING_QUEUE_H_
