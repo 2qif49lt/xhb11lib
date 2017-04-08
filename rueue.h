@@ -302,14 +302,14 @@ private:
     }
 
 private:
-    template<typename R>
-    class rueue_iterator :public std::iterator<std::random_access_iterator_tag,typename R::value_type>{
+    template<typename R,typename V>
+    class rueue_iterator :public std::iterator<std::random_access_iterator_tag,V>{
     private:
         R* queue = nullptr;
         size_type idx = 0;
 
     public:
-        using my_base = std::iterator<std::random_access_iterator_tag,typename R::value_type>;
+        using my_base = std::iterator<std::random_access_iterator_tag,V>;
         using my_type = rueue_iterator<R>;
         
         using value_type = my_base::value_type;
@@ -406,17 +406,29 @@ private:
 public:
     friend class rueue_iterator;
 
-    using iterator = rueue_iterator<my_type>;
- //   using const_iterator = rueue_iterator<const my_type>;
+    using iterator = rueue_iterator<my_type,value_type>;
+    using const_iterator = rueue_iterator<const my_type,const value_type>;
 
     iterator begin(){
         return iterator(this,_impl.beg);
     }
-
+    const_iterator begin()const{
+        return const_iterator(this,_impl.beg); 
+    }
+    
     iterator end(){
         return iterator(this,_impl.end);
     }
-
+    const_iterator end()const {
+        return const_iterator(this,_impl.end);
+    }
+    
+    const_iterator cbegin() const {
+        return const_iterator(this, _impl.beg);
+    }
+    const_iterator cend() const {
+        return const_iterator(this, _impl.end);
+    }
     
 };
 #endif // RING_QUEUE_H_
