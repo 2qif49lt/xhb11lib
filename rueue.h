@@ -29,9 +29,6 @@ public:
     using const_reference = const T&;
     using const_point = const T*;
 
-    using iterator = T*;
-    using const_iterator = const T*;
-
 private:
     using alloc_traits = std::allocator_traits<allocator_type>;
 
@@ -55,7 +52,7 @@ public:
         construct_n(count,val);
     }
     ~rueue(){
-        destory();
+        destroy();
         if(_impl.data != nullptr)
         {  
             alloc_traits::deallocate(_impl,_impl.data,_impl.cap);
@@ -70,17 +67,17 @@ public:
         assign(first,last);
     }
 
-    rueue& operator=(const my_type& other){
+    my_type& operator=(const my_type& other){
         if(this != &other){
-            this->~queue();
-            new(this)rueue(other);
+            this->~my_type();
+            new(this)my_type(other);
         }
         return *this;
     }
-    rueue& operator=(my_type&& other){
+    my_type& operator=(my_type&& other){
         if(this != &other){
-            this->~rueue();
-            new(this)rueue(std::move(other));
+            this->~my_type();
+            new(this)my_type(std::move(other));
         }
         return *this;
     }
@@ -108,7 +105,7 @@ public:
 
     void pop_back(){
         if(empty()) return;
-        alloc_traits::destory(_impl,&back());
+        alloc_traits::destroy(_impl,&back());
         --_impl.end;
     }
     reference back(){
@@ -141,7 +138,7 @@ public:
 
     void pop_front(){
         if(empty()) return;
-        alloc_traits::destory(_impl,&front());
+        alloc_traits::destroy(_impl,&front());
         ++_impl.beg;
     }
     reference front(){
@@ -161,7 +158,7 @@ public:
             void>::value,void>::type
     assign(Iter first,Iter last){
         destroy();
-        reserve(count);
+        reserve(std::distance(first,last));
         construct_iter(first,last);
     }
     void assign(size_type count,const value_type& val){
@@ -179,7 +176,7 @@ public:
     }
 
     size_type size() const{
-        return _impl.end - impl.beg;
+        return _impl.end - _impl.beg;
     }
     size_type max_size()const{
         return std::numeric_limits<size_type>::max() / sizeof(value_type);
@@ -196,7 +193,7 @@ public:
          if(idx >= size()) throw std::out_of_range("out of range");
          return _impl.data[mask(_impl.beg + idx)]; 
     }
-    const_reference operatoro[](size_type idx)const{
+    const_reference operator[](size_type idx)const{
         if(idx >= size()) throw std::out_of_range("out of range");
          return _impl.data[mask(_impl.beg + idx)];
     }
@@ -266,8 +263,8 @@ private:
             alloc_traits::construct(_impl,d,std::move(_impl.data[mask(s)]));
         }
        
-        if(flase == std::is_move_constructible<value_type>::value)
-            destroy(_impl.beg,_impl.end);
+        if(false == std::is_move_constructible<value_type>::value)
+            destroy_index(_impl.beg,_impl.end);
        
         std::swap(_impl.data,new_data);
         std::swap(_impl.cap,count);
@@ -276,7 +273,7 @@ private:
         _impl.end = d - _impl.data;
 
         if(new_data != nullptr)
-            alloc_traits::deallocate(_impl,new_data,count)
+            alloc_traits::deallocate(_impl,new_data,count);
     }
     void construct_n(size_type count,const value_type val){
         for(size_type idx = 0; idx != count; ++idx)
@@ -285,10 +282,12 @@ private:
     }
     template<typename Iter>
     void construct_iter(Iter first,Iter last){
+        auto count = std::distance(first,last);
+        
         for(size_type idx = 0; first != last; ++first,++idx){
             alloc_traits::construct(_impl,_impl.data + mask(idx),*first);
         }
-        _impl.end = std::distance(first,last);
+        _impl.end = count;
     }
     void destroy(){
         destroy_index(_impl.beg,_impl.end);
@@ -310,22 +309,22 @@ private:
 
     public:
         using my_base = std::iterator<std::random_access_iterator_tag,V>;
-        using my_type = rueue_iterator<R>;
-        
-        using value_type = my_base::value_type;
-        using pointer = my_base::pointer;
-        using reference = my_base::reference;
-        using difference_type = my_base::difference_type;
+        using my_type = rueue_iterator<R,V>;
+
+        using value_type = typename my_base::value_type;
+        using pointer = typename my_base::pointer;
+        using reference = typename my_base::reference;
+        using difference_type = typename my_base::difference_type;
 
         // the big 5 are all default;
-        my_type() = default;
-        my_type(const my_type&) = default;
-        my_type(my_type&&) = default;
-        my_type& operator=(const my_type&) = default;
-        my_type& operator=(my_type&&) = default;
-        ~my_type() = default;
+        rueue_iterator() = default;
+        rueue_iterator(const my_type&) = default;
+        rueue_iterator(my_type&&) = default;
+        rueue_iterator& operator=(const my_type&) = default;
+        rueue_iterator& operator=(my_type&&) = default;
+        ~rueue_iterator() = default;
 
-        my_type(R* r,size_type n):queue(r),idx(n){};
+        rueue_iterator(R* r,size_type n):queue(r),idx(n){};
         
         value_type& operator*() const{
             return queue->_impl.data[queue->mask(idx)];
@@ -404,10 +403,11 @@ private:
     };
 
 public:
-    friend class rueue_iterator;
 
     using iterator = rueue_iterator<my_type,value_type>;
     using const_iterator = rueue_iterator<const my_type,const value_type>;
+
+    friend iterator;
 
     iterator begin(){
         return iterator(this,_impl.beg);
@@ -429,6 +429,6 @@ public:
     const_iterator cend() const {
         return const_iterator(this, _impl.end);
     }
-    
+
 };
 #endif // RING_QUEUE_H_
