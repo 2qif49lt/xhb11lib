@@ -87,11 +87,13 @@ void test_member(){
     r.emplace_front("Hathaway");
     assert(r.size() == 3 && r.front() == "Hathaway" && r.back() == "Kardashian");
     
+    
+    
     r.clear();
     assert(r.size() == 0);
     
     
-    
+    /*
     int c = 0;
     while(1){
         std::cout<<c++<<std::endl;
@@ -104,7 +106,7 @@ void test_member(){
         }
         assert(r.size() == 0 );
     }
-    
+    */
 
 
 }
@@ -142,9 +144,46 @@ void test_iterator(){
     for(auto it = r.begin(); it != r.end(); ++it,++idx){
         assert(*it == r[idx] && *it == idx);
     }
+    
+    auto fit = find(r.begin(),r.end(),10);
+    assert(fit != r.end());
+    
+    fit = r.erase(fit);
+    assert(*fit == 11 && r.size() == 19);
+    assert(r.end() == find(r.begin(),r.end(),10));
+    
+    r.push_front(10);
+    auto eit = r.erase(r.begin(), r.end());
+    assert(eit == r.end() && r.size() == 0);
+    
+    auto iit = r.insert(r.begin(), 1);
+    assert(*iit == 1);
+    iit = r.insert(iit, 2);
+    assert(*iit == 2 && r.back() == 1);
+    
+    
+    auto ieit = r.insert(r.end(), 3);
+    assert(r.back() == 3 && *ieit == 3);
+    
+    
+    vector<int> vec;
+    n = 0;
+    std::generate_n(std::back_inserter(vec), 10, [&n](){return n++;});
+    
+    iit = r.insert(r.begin() + 1, 3, 5);
+    assert(*iit == 5 && *(iit+1) == 5 && *(iit + 2) == 5);
+    assert(r.size() == 6);
+    std::for_each(r.begin(),r.end(),[](int i){std::cout<<" "<<i;});
+    std::cout<<std::endl;
+    
+    iit = r.insert(r.end() - 2, vec.begin(), vec.end());
+    assert(r.size() == 6 + 10);
+    std::for_each(r.begin(),r.end(),[](int i){std::cout<<" "<<i;});
+    std::cout<<std::endl;
 }
 int main(){
+    test_construct();
+    test_member();
     test_iterator();
-    
 }
 #endif // RUEUE_UNIT_TEST

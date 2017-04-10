@@ -1,7 +1,7 @@
 #ifndef RING_QUEUE_H_
 #define RING_QUEUE_H_
 
-// 同时具有vector和list的优点的可自增长高效双向队列。
+// 一种比vector更高效的适配标准库的自增长高效双向队列。
 #include <memory> // for allocator
 #include <algorithm>
 #include <type_traits>
@@ -280,6 +280,7 @@ private:
             alloc_traits::construct(_impl,_impl.data + mask(idx),val);
         _impl.end = count;
     }
+    
     template<typename Iter>
     void construct_iter(Iter first,Iter last){
         auto count = std::distance(first,last);
@@ -299,7 +300,7 @@ private:
             alloc_traits::destroy(_impl,_impl.data + mask(first));
         }
     }
-
+    
 private:
     template<typename R,typename V>
     class rueue_iterator :public std::iterator<std::random_access_iterator_tag,V>{
@@ -379,7 +380,7 @@ private:
         }
 
         difference_type operator-(const my_type& other)const{
-            check_same_queue();
+            check_same_queue(other);
             return idx - other.idx;
         }
 
@@ -395,22 +396,22 @@ private:
 
         bool operator<(const my_type& rhs)const{
             check_same_queue(rhs);
-            return idx < rhs.idx;
+            return idx - queue->_impl.beg < rhs.idx - queue->_impl.beg;
         }
 
         bool operator>(const my_type& rhs)const{
             check_same_queue(rhs);
-            return idx > rhs.idx;
+            return idx - queue->_impl.beg > rhs.idx - queue->_impl.beg;
         }
 
         bool operator<=(const my_type& rhs)const{
             check_same_queue(rhs);
-            return idx <= rhs.idx;
+            return idx - queue->_impl.beg <= rhs.idx - queue->_impl.beg;
         }
 
         bool operator>=(const my_type& rhs)const{
             check_same_queue(rhs);
-            return idx >= rhs.idx;
+            return idx - queue->_impl.beg >= rhs.idx - queue->_impl.beg;
         }
         //
         friend R;
@@ -446,7 +447,20 @@ public:
     
     iterator erase(iterator first,iterator last){
         if(first == last) return last;
-        return last;
+        if(first < begin() || last > end())
+            throw std::out_of_range("erase iterator is out of range");
+        
+        if(std::distance(begin(),first) < std::distance(last, end())){
+            auto new_beg = std::move_backward(begin(), first, last);
+            std::for_each(begin(), new_beg, [this](value_type& item){alloc_traits::destroy(_impl,&item);});
+            _impl.beg = new_beg.idx;
+            return last;
+        }else{
+            auto new_end = std::move(last,end(),first);
+            std::for_each(new_end,end(),[this](value_type& item){alloc_traits::destroy(_impl,&item);});
+            _impl.end = new_end.idx;
+            return first;
+        }
     }
     
     iterator erase(iterator where){
@@ -455,19 +469,95 @@ public:
         
         if(std::distance(begin(), where) < std::distance(where, end())){
             auto new_beg = std::move_backward(begin(), where, where + 1);
-            auto tmp_beg = begin();
-            for(;tmp_beg != new_beg;++tmp_beg){
-                alloc_traits::destroy(_impl,&*tmp_beg);
-            }
+            std::for_each(begin(), new_beg, [this](value_type& item){alloc_traits::destroy(_impl,&item);});
             _impl.beg = new_beg.idx;
-            return where;
         }else{
             auto new_end = std::move(where + 1,end(),where);
-            auto tmp_end = end();
-            for(;tmp_end != new_end - 1;){
-                alloc_traits::destroy(_impl,&*(--tmp_end));
-            }
+            std::for_each(new_end, end(), [this](value_type& item){alloc_traits::destroy(_impl,&item);});
             _impl.end = new_end.idx;
+        }
+        return where;
+    }
+    
+    // insert 后迭代器会失效.该接口只是为了容器用途更广.效率低不建议使用。
+    // insert before value before pos.
+    // return iterator pointing to the inserted / first value
+    //
+    iterator insert(iterator pos,const value_type& value){
+        if (pos > end() || pos < begin())
+            throw std::out_of_range("erase iterator is out of range");
+        
+        return insert_n(pos, 1, value);
+    }
+    iterator insert(iterator pos,size_type count,const value_type& value){
+        return insert_n(pos, count, value);
+    }
+    template<typename Iter>
+    iterator insert(iterator pos,Iter first,Iter last){
+        return insert_n(pos,first,last);
+    }
+private:
+    size_type unused_capacity()const{return capacity() - size();}
+
+    //
+    iterator insert_n(iterator pos,size_type count,const value_type& value){
+        if(count == 0) return pos;
+        
+        auto idx = std::distance(begin(), pos);
+        reserve(size() + count);
+        pos.idx = _impl.beg + idx;
+        
+        if(std::distance(begin(), pos) < std::distance(pos, end())){
+            auto new_beg = begin() - count;
+            
+            auto insert_beg = std::move(begin(),pos,new_beg);
+            
+            std::for_each(insert_beg,pos,[this,&value](value_type& item){alloc_traits::construct(_impl,&item,value);});
+            
+            _impl.beg = new_beg.idx;
+            
+            return insert_beg;
+        }else{
+            auto new_end = end() + count;
+            
+            auto insert_end = std::move_backward(pos, end(),new_end);
+            
+            std::for_each(pos,insert_end,[this,&value](value_type& item){alloc_traits::construct(_impl,&item,value);});
+            
+            _impl.end = new_end.idx;
+            
+            return pos;
+        }
+        
+    }
+    template<typename Iter>
+    iterator insert_n(iterator pos,Iter first,Iter last,
+                     typename std::enable_if<std::is_same<typename std::iterator_traits<Iter>::value_type,value_type>::value>::type* = nullptr){
+        auto count = std::distance(first, last);
+        if(count == 0) return pos;
+        
+        auto idx = std::distance(begin(), pos);
+        reserve(size() + count);
+        pos.idx = _impl.beg + idx;
+        
+        if(std::distance(begin(), pos) < std::distance(pos, end())){
+            auto new_beg = begin() - count;
+            
+            auto insert_beg = std::move(begin(),pos,new_beg);
+            std::for_each(insert_beg,pos,[this,&first](value_type& item){alloc_traits::construct(_impl,&item,*first++);});
+            
+            _impl.beg = new_beg.idx;
+            
+            return insert_beg;
+        }else{
+            auto new_end = end() + count;
+            
+            auto insert_end = std::move_backward(pos, end(),new_end);
+            std::for_each(pos,insert_end,[this,&first](value_type& item){alloc_traits::construct(_impl,&item,*first++);});
+            
+            _impl.end = new_end.idx;
+            
+            return pos;
         }
     }
 };
