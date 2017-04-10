@@ -306,7 +306,8 @@ private:
     private:
         R* queue = nullptr;
         size_type idx = 0;
-
+        
+        
     public:
         using my_base = std::iterator<std::random_access_iterator_tag,V>;
         using my_type = rueue_iterator<R,V>;
@@ -315,7 +316,12 @@ private:
         using pointer = typename my_base::pointer;
         using reference = typename my_base::reference;
         using difference_type = typename my_base::difference_type;
+    private:
+        inline void check_same_queue(const my_type& other) const{
+            if(queue != other.queue) throw std::runtime_error("rueue is not the same");
+        }
 
+    public:
         // the big 5 are all default;
         rueue_iterator() = default;
         rueue_iterator(const my_type&) = default;
@@ -373,33 +379,41 @@ private:
         }
 
         difference_type operator-(const my_type& other)const{
+            check_same_queue();
             return idx - other.idx;
         }
 
         bool operator== (const my_type& rhs)const{
+            check_same_queue(rhs);
             return idx == rhs.idx;
         }
 
         bool operator!= (const my_type& rhs)const{
+            check_same_queue(rhs);
             return idx != rhs.idx;
         }
 
         bool operator<(const my_type& rhs)const{
+            check_same_queue(rhs);
             return idx < rhs.idx;
         }
 
         bool operator>(const my_type& rhs)const{
+            check_same_queue(rhs);
             return idx > rhs.idx;
         }
 
         bool operator<=(const my_type& rhs)const{
+            check_same_queue(rhs);
             return idx <= rhs.idx;
         }
 
         bool operator>=(const my_type& rhs)const{
+            check_same_queue(rhs);
             return idx >= rhs.idx;
         }
         //
+        friend R;
     };
 
 public:
@@ -429,6 +443,32 @@ public:
     const_iterator cend() const {
         return const_iterator(this, _impl.end);
     }
-
+    
+    iterator erase(iterator first,iterator last){
+        if(first == last) return last;
+        return last;
+    }
+    
+    iterator erase(iterator where){
+        if (where >= end() || where < begin())
+            throw std::out_of_range("erase iterator is out of range");
+        
+        if(std::distance(begin(), where) < std::distance(where, end())){
+            auto new_beg = std::move_backward(begin(), where, where + 1);
+            auto tmp_beg = begin();
+            for(;tmp_beg != new_beg;++tmp_beg){
+                alloc_traits::destroy(_impl,&*tmp_beg);
+            }
+            _impl.beg = new_beg.idx;
+            return where;
+        }else{
+            auto new_end = std::move(where + 1,end(),where);
+            auto tmp_end = end();
+            for(;tmp_end != new_end - 1;){
+                alloc_traits::destroy(_impl,&*(--tmp_end));
+            }
+            _impl.end = new_end.idx;
+        }
+    }
 };
 #endif // RING_QUEUE_H_
