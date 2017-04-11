@@ -1,5 +1,5 @@
-#ifndef RING_QUEUE_H_
-#define RING_QUEUE_H_
+#ifndef XHBLIB_RING_QUEUE_H_
+#define XHBLIB_RING_QUEUE_H_
 
 // 一种比vector更高效的适配标准库的自增长高效双向队列。
 #include <memory> // for allocator
@@ -262,9 +262,8 @@ private:
         for(;s != _impl.end; ++s,++d){
             alloc_traits::construct(_impl,d,std::move(_impl.data[mask(s)]));
         }
-       
-        if(false == std::is_move_constructible<value_type>::value)
-            destroy_index(_impl.beg,_impl.end);
+        
+        destroy_index(_impl.beg,_impl.end); // fXXk off strong exception safe!
        
         std::swap(_impl.data,new_data);
         std::swap(_impl.cap,count);
@@ -542,23 +541,23 @@ private:
         
         if(std::distance(begin(), pos) < std::distance(pos, end())){
             auto new_beg = begin() - count;
-            
-            auto insert_beg = std::move(begin(),pos,new_beg);
-            std::for_each(insert_beg,pos,[this,&first](value_type& item){alloc_traits::construct(_impl,&item,*first++);});
-            
+            auto old_beg = begin();
             _impl.beg = new_beg.idx;
+
+            std::uninitialized_copy(first,last,new_beg);
+            std::rotate(new_beg,old_beg,pos);            
             
-            return insert_beg;
+            return pos - count + 1;
         }else{
             auto new_end = end() + count;
-            
-            auto insert_end = std::move_backward(pos, end(),new_end);
-            std::for_each(pos,insert_end,[this,&first](value_type& item){alloc_traits::construct(_impl,&item,*first++);});
-            
+            auto old_end = end();
             _impl.end = new_end.idx;
+
+            std::uninitialized_copy(first,last,old_end);
+            std::rotate(pos,old_end,end());
             
             return pos;
         }
     }
 };
-#endif // RING_QUEUE_H_
+#endif // XHBLIB_RING_QUEUE_H_
