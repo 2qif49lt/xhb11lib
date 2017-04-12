@@ -21,17 +21,17 @@ class rueue final{
 public:
     using my_type = rueue<T,Alloc>;
     using allocator_type = Alloc;
-
+    
     using value_type = T;
     using size_type = size_t;
     using reference = T&;
     using pointer = T*;
     using const_reference = const T&;
     using const_point = const T*;
-
+    
 private:
     using alloc_traits = std::allocator_traits<allocator_type>;
-
+    
 public:
     rueue() = default;
     
@@ -54,7 +54,7 @@ public:
     ~rueue(){
         destroy();
         if(_impl.data != nullptr)
-        {  
+        {
             alloc_traits::deallocate(_impl,_impl.data,_impl.cap);
             _impl.data = nullptr;
             _impl.cap = 0;
@@ -63,10 +63,10 @@ public:
     
     template<typename Iter >
     rueue(Iter first,Iter last,
-        typename std::enable_if<std::is_same<typename std::iterator_traits<Iter>::value_type,value_type>::value>::type* = nullptr){
+          typename std::enable_if<std::is_same<typename std::iterator_traits<Iter>::value_type,value_type>::value>::type* = nullptr){
         assign(first,last);
     }
-
+    
     my_type& operator=(const my_type& other){
         if(this != &other){
             this->~my_type();
@@ -81,7 +81,7 @@ public:
         }
         return *this;
     }
-
+    
     void push_back(const value_type& val){
         may_realloc(1);
         auto end = _impl.data + mask(_impl.end);
@@ -102,7 +102,7 @@ public:
         alloc_traits::construct(_impl,end,std::forward<Args>(args)...);
         ++_impl.end;
     }
-
+    
     void pop_back(){
         if(empty()) return;
         alloc_traits::destroy(_impl,&back());
@@ -114,7 +114,7 @@ public:
     const_reference back() const{
         return _impl.data[mask(_impl.end - 1)];
     }
-
+    
     void push_front(const value_type& val){
         may_realloc(1);
         auto f = _impl.data + mask(_impl.beg - 1);
@@ -130,12 +130,12 @@ public:
     
     template<typename... Args>
     void emplace_front(Args&&... args){
-       may_realloc(1);
+        may_realloc(1);
         auto f = _impl.data + mask(_impl.beg - 1);
         alloc_traits::construct(_impl,f,std::forward<Args>(args)...);
-        --_impl.beg; 
+        --_impl.beg;
     }
-
+    
     void pop_front(){
         if(empty()) return;
         alloc_traits::destroy(_impl,&front());
@@ -152,10 +152,10 @@ public:
         if(this == &other) return;
         std::swap(this->_impl,other._impl);
     }
-
+    
     template<typename Iter>
-        typename std::enable_if<!std::is_same<typename std::iterator_traits<Iter>::value_type,
-            void>::value,void>::type
+    typename std::enable_if<!std::is_same<typename std::iterator_traits<Iter>::value_type,
+    void>::value,void>::type
     assign(Iter first,Iter last){
         destroy();
         reserve(std::distance(first,last));
@@ -166,15 +166,15 @@ public:
         reserve(count);
         construct_n(count,val);
     }
-
+    
     void clear(){
         destroy();
     }
-
+    
     bool empty() const{
         return _impl.beg == _impl.end;
     }
-
+    
     size_type size() const{
         return _impl.end - _impl.beg;
     }
@@ -188,16 +188,16 @@ public:
         if(capacity() >= count) return;
         realloc(count);
     }
-
+    
     reference operator[](size_type idx){
-         if(idx >= size()) throw std::out_of_range("out of range");
-         return _impl.data[mask(_impl.beg + idx)]; 
+        if(idx >= size()) throw std::out_of_range("out of range");
+        return _impl.data[mask(_impl.beg + idx)];
     }
     const_reference operator[](size_type idx)const{
         if(idx >= size()) throw std::out_of_range("out of range");
-         return _impl.data[mask(_impl.beg + idx)];
+        return _impl.data[mask(_impl.beg + idx)];
     }
-
+    
     reference at(size_type idx){
         if(idx >= size()) throw std::out_of_range("out of range");
         return _impl.data[mask(_impl.beg + idx)];
@@ -206,13 +206,13 @@ public:
         if(idx >= size()) throw std::out_of_range("out of range");
         return _impl.data[mask(_impl.beg + idx)];
     }
-
+    
 private:
     size_type mask(size_type idx)const{
         return idx & (_impl.cap - 1);
     }
     size_type size_policy(size_type count)const{
-         if(count < 32) 
+        if(count < 32)
             return  32;
         else
             return count_ceil_power(count);
@@ -220,7 +220,7 @@ private:
     size_type count_ceil_power(size_type num)const{
         return size_type(1) << count_leading_zero(num - 1);
     }
-
+    
     size_type count_leading_zero(size_type num)const{
         size_type c = 0;
         while(num){
@@ -231,7 +231,7 @@ private:
     }
     void may_realloc(size_type count){
         if(size() + count > capacity()){
-          reserve(size() + count);
+            reserve(size() + count);
         }
     }
     void alloc_init(size_type count){
@@ -250,7 +250,7 @@ private:
     
     void realloc(size_type count){
         if(max_size() < count) throw std::invalid_argument("count is oversize.");
-
+        
         count = size_policy(count);
         
         auto new_data = alloc_traits::allocate(_impl,count);
@@ -258,19 +258,19 @@ private:
         
         auto d = new_data;
         auto s = _impl.beg;
-
+        
         for(;s != _impl.end; ++s,++d){
             alloc_traits::construct(_impl,d,std::move(_impl.data[mask(s)]));
         }
         
         destroy_index(_impl.beg,_impl.end); // fXXk off strong exception safe!
-       
+        
         std::swap(_impl.data,new_data);
         std::swap(_impl.cap,count);
-
+        
         _impl.beg = 0;
         _impl.end = d - _impl.data;
-
+        
         if(new_data != nullptr)
             alloc_traits::deallocate(_impl,new_data,count);
     }
@@ -311,7 +311,7 @@ private:
     public:
         using my_base = std::iterator<std::random_access_iterator_tag,V>;
         using my_type = rueue_iterator<R,V>;
-
+        
         using value_type = typename my_base::value_type;
         using pointer = typename my_base::pointer;
         using reference = typename my_base::reference;
@@ -320,7 +320,7 @@ private:
         inline void check_same_queue(const my_type& other) const{
             if(queue != other.queue) throw std::runtime_error("rueue is not the same");
         }
-
+        
     public:
         // the big 5 are all default;
         rueue_iterator() = default;
@@ -329,13 +329,13 @@ private:
         rueue_iterator& operator=(const my_type&) = default;
         rueue_iterator& operator=(my_type&&) = default;
         ~rueue_iterator() = default;
-
+        
         rueue_iterator(R* r,size_type n):queue(r),idx(n){};
         
         value_type& operator*() const{
             return queue->_impl.data[queue->mask(idx)];
         }
-
+        
         value_type* operator->()const{
             return &queue->_impl.data[queue->mask(idx)];
         }
@@ -360,54 +360,54 @@ private:
             idx--;
             return ret;
         }
-
+        
         my_type& operator+=(difference_type n){
             idx += n;
             return *this;
         }
-
+        
         my_type& operator-=(difference_type n){
             idx -= n;
             return *this;
         }
-
+        
         my_type operator+(difference_type n)const{
             return my_type(queue,idx + n);
         }
         my_type operator-(difference_type n)const{
             return my_type(queue,idx - n);
         }
-
+        
         difference_type operator-(const my_type& other)const{
             check_same_queue(other);
             return idx - other.idx;
         }
-
+        
         bool operator== (const my_type& rhs)const{
             check_same_queue(rhs);
             return idx == rhs.idx;
         }
-
+        
         bool operator!= (const my_type& rhs)const{
             check_same_queue(rhs);
             return idx != rhs.idx;
         }
-
+        
         bool operator<(const my_type& rhs)const{
             check_same_queue(rhs);
             return idx - queue->_impl.beg < rhs.idx - queue->_impl.beg;
         }
-
+        
         bool operator>(const my_type& rhs)const{
             check_same_queue(rhs);
             return idx - queue->_impl.beg > rhs.idx - queue->_impl.beg;
         }
-
+        
         bool operator<=(const my_type& rhs)const{
             check_same_queue(rhs);
             return idx - queue->_impl.beg <= rhs.idx - queue->_impl.beg;
         }
-
+        
         bool operator>=(const my_type& rhs)const{
             check_same_queue(rhs);
             return idx - queue->_impl.beg >= rhs.idx - queue->_impl.beg;
@@ -415,19 +415,19 @@ private:
         //
         friend R;
     };
-
+    
 public:
-
+    
     using iterator = rueue_iterator<my_type,value_type>;
     using const_iterator = rueue_iterator<const my_type,const value_type>;
-
+    
     friend iterator;
-
+    
     iterator begin(){
         return iterator(this,_impl.beg);
     }
     const_iterator begin()const{
-        return const_iterator(this,_impl.beg); 
+        return const_iterator(this,_impl.beg);
     }
     
     iterator end(){
@@ -497,7 +497,7 @@ public:
     }
 private:
     size_type unused_capacity()const{return capacity() - size();}
-
+    
     //
     iterator insert_n(iterator pos,size_type count,const value_type& value){
         if(count == 0) return pos;
@@ -508,30 +508,27 @@ private:
         
         if(std::distance(begin(), pos) < std::distance(pos, end())){
             auto new_beg = begin() - count;
-            
-            auto insert_beg = std::move(begin(),pos,new_beg);
-            
-            std::for_each(insert_beg,pos,[this,&value](value_type& item){alloc_traits::construct(_impl,&item,value);});
-            
+            auto old_beg = begin();
             _impl.beg = new_beg.idx;
             
-            return insert_beg;
+            std::uninitialized_fill(new_beg,old_beg,value);
+            std::rotate(new_beg,old_beg,pos);
+            
+            return pos - count ;
         }else{
             auto new_end = end() + count;
-            
-            auto insert_end = std::move_backward(pos, end(),new_end);
-            
-            std::for_each(pos,insert_end,[this,&value](value_type& item){alloc_traits::construct(_impl,&item,value);});
-            
+            auto old_end = end();
             _impl.end = new_end.idx;
+            
+            std::uninitialized_fill(old_end,new_end,value);
+            std::rotate(pos,old_end,end());
             
             return pos;
         }
-        
     }
     template<typename Iter>
     iterator insert_n(iterator pos,Iter first,Iter last,
-                     typename std::enable_if<std::is_same<typename std::iterator_traits<Iter>::value_type,value_type>::value>::type* = nullptr){
+                      typename std::enable_if<std::is_same<typename std::iterator_traits<Iter>::value_type,value_type>::value>::type* = nullptr){
         auto count = std::distance(first, last);
         if(count == 0) return pos;
         
@@ -543,16 +540,16 @@ private:
             auto new_beg = begin() - count;
             auto old_beg = begin();
             _impl.beg = new_beg.idx;
-
-            std::uninitialized_copy(first,last,new_beg);
-            std::rotate(new_beg,old_beg,pos);            
             
-            return pos - count + 1;
+            std::uninitialized_copy(first,last,new_beg);
+            std::rotate(new_beg,old_beg,pos);
+            
+            return pos - count;
         }else{
             auto new_end = end() + count;
             auto old_end = end();
             _impl.end = new_end.idx;
-
+            
             std::uninitialized_copy(first,last,old_end);
             std::rotate(pos,old_end,end());
             

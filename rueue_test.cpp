@@ -14,6 +14,7 @@
 #include <thread>
 #include <chrono>
 #include <type_traits>
+#include <sstream>
 
 using std::string;
 using std::vector;
@@ -156,30 +157,32 @@ void test_iterator(){
     auto eit = r.erase(r.begin(), r.end());
     assert(eit == r.end() && r.size() == 0);
     
-    auto iit = r.insert(r.begin(), 1);
+    
+    auto iit = r.insert(r.begin(), 1); // 1
     assert(*iit == 1);
-    iit = r.insert(iit, 2);
+    iit = r.insert(iit, 2); // 21
     assert(*iit == 2 && r.back() == 1);
     
     
-    auto ieit = r.insert(r.end(), 3);
+    auto ieit = r.insert(r.end(), 3); // 213
     assert(r.back() == 3 && *ieit == 3);
-    
+    std::for_each(r.begin(),r.end(),[](int i){std::cout<<" "<<i;});std::cout<<std::endl;
+
     
     vector<int> vec;
     n = 0;
     std::generate_n(std::back_inserter(vec), 10, [&n](){return n++;});
     
-    iit = r.insert(r.begin() + 1, 3, 5);
+    iit = r.insert(r.begin() + 1, 3, 5); // 255513
     assert(*iit == 5 && *(iit+1) == 5 && *(iit + 2) == 5);
     assert(r.size() == 6);
-    std::for_each(r.begin(),r.end(),[](int i){std::cout<<" "<<i;});
-    std::cout<<std::endl;
+    std::for_each(r.begin(),r.end(),[](int i){std::cout<<" "<<i;});std::cout<<std::endl;
     
-    iit = r.insert(r.end() - 2, vec.begin(), vec.end());
+    iit = r.insert(r.end() - 2, vec.begin(), vec.end()); //  2 5 5 5 0 1 2 3 4 5 6 7 8 9 1 3
     assert(r.size() == 6 + 10);
-    std::for_each(r.begin(),r.end(),[](int i){std::cout<<" "<<i;});
-    std::cout<<std::endl;
+    std::stringstream ss;
+    std::for_each(r.begin(),r.end(),[&ss](int i){ss<<i;});
+    assert(ss.str() == "2555012345678913");
 }
 int main(){
     test_construct();
