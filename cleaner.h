@@ -63,20 +63,22 @@ public:
     }
     // share 返回一个指向相同的cleaner,内部引用计数+1,封装的动作将在2个cleaner都析构后执行。
     cleaner share();
-
+    
+    operator bool()const{return _impl != nullptr;}
+     unsigned int refs()const;
 private:
     static bool is_raw_point(impl* i){
         auto x = reinterpret_cast<uintptr_t>(i);
         return x & 1;
     }
-    bool is_raw_point(){
+    bool is_raw_point() const{
         return is_raw_point(_impl);
     }
     static void* to_raw_point(impl* i){
         auto x = reinterpret_cast<uintptr_t>(i);
         return reinterpret_cast<void*>(x & ~uintptr_t(1));
     }
-    void* to_raw_point(){
+    void* to_raw_point() const{
         return to_raw_point(_impl);
     }
     impl* from_raw_point(void* p){
@@ -92,6 +94,7 @@ struct cleaner::impl{
     impl(cleaner n):next(std::move(n)){}
     virtual ~impl(){}
 };
+
 
 cleaner::~cleaner(){
     if(_impl == nullptr) return;
@@ -161,6 +164,11 @@ inline cleaner cleaner::share(){
     return cleaner(_impl);
 }
 
+unsigned int cleaner::refs()const{
+    if(_impl == nullptr) return 0;
+    if(is_raw_point()) return 1;
+    return _impl->refs;
+}
 
 template<typename Object>
 struct object_cleaner_impl final : public cleaner::impl{
@@ -186,14 +194,6 @@ template<typename T>
 cleaner make_object_cleaner(cleaner d,T&& obj){
     return cleaner{make_object_cleaner_impl(std::move(d),std::move(obj))};
 }
-
-
-template<typename, typename T>
-struct has_serialize {
-    static_assert(
-                  std::integral_constant<T, false>::value,
-                  "Second template parameter needs to be of function type.");
-};
 
 // helper
 

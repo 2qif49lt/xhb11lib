@@ -95,11 +95,37 @@ void test_next_cleaner(){
 }
 
 
-void test_construct(){
+void test_share(){
     
+    cout<< (char*)&__func__<<endl;
+    int n = 0;
+    {
+        auto a = make_cleaner([&n](){++n;});
+        {
+            auto b = a.share();
+        }
+        auto c = a.share();
+    }
+    assert(n == 1 && assert_ss.str() == "l");
+    assert_ss.str("");
+    
+    n = 0;
+    void* p = malloc(10);
+    {
+        auto a = make_cleaner(p);
+        auto b = a.share();
+        {
+            auto c = b.share();
+        }
+        assert(b.refs() == 2);
+        assert(assert_ss.str() == "");
+    }
+    assert(assert_ss.str() == "f");
+    assert_ss.str("");
 }
 int main(){
     test_simple_cleaner();
     test_next_cleaner();
+    test_share();
 }
 #endif // XHBLIB_CLEANER_UNIT_TEST
