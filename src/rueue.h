@@ -1,7 +1,8 @@
 #ifndef XHBLIB_RING_QUEUE_H_
 #define XHBLIB_RING_QUEUE_H_
 
-// 一种比vector更高效的适配标准库的自增长高效双向队列。
+// 一种比vector更高效的适配标准库的自增长高效环形队列。
+// 缺点是相比deque而言，当到要分配内存时波动比deque激烈
 #include <memory> // for allocator
 #include <algorithm>
 #include <type_traits>
