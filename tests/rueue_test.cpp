@@ -2,7 +2,7 @@
 
 #ifdef RUEUE_UNIT_TEST
 
-#include "rueue.h"
+#include "src/rueue.h"
 
 #include <cassert>
 #include <algorithm>

@@ -1,6 +1,6 @@
 #ifdef XHBLIB_CLEANER_UNIT_TEST
 
-#include "cleaner.h"
+#include "src/cleaner.h"
 
 
 #include <cassert>
