@@ -40,7 +40,7 @@ public:
         alloc_init(other.size());
         copy_init(other);
     }
-    rueue(my_type&& other):_impl(std::move(other._impl)){
+    rueue(my_type&& other)noexcept:_impl(std::move(other._impl)){
         other._impl = {};
     }
     
