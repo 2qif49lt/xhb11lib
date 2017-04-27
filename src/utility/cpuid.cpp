@@ -28,6 +28,7 @@ int xhb_cpuid() {
 #if (WINVER < _WIN32_WINNT_WIN8)
 #include <Windows.h>
 #else
+#include <Windows.h>
 #include <Processthreadsapi.h>
 #endif
 
