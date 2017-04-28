@@ -1,4 +1,4 @@
-#include "cpuid.h"
+#include "resource.h"
 
 #ifdef __APPLE__
 #include <cpuid.h>
@@ -20,20 +20,5 @@ int xhb_cpuid() {
     if (id < 0) id = 0;
     return id;
 }
-#endif
 
-
-#ifdef _WIN32
-
-#if (WINVER < _WIN32_WINNT_WIN8)
-#include <Windows.h>
-#else
-#include <Windows.h>
-#include <Processthreadsapi.h>
-#endif
-
-int xhb_cpuid() {
-    return (int)GetCurrentProcessorNumber();
-}
-
-#endif
+#endif // apple

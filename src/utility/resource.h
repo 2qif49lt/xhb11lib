@@ -7,6 +7,8 @@
 
 #define xhb_cpuid() sched_getcpu()
 
+cup_set_t cpuset(unsigned int cpuid);
+
 #elif defined(__APPLE__)
 
 int xhb_cpuid(); 
