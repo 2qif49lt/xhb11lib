@@ -5,7 +5,7 @@
 
 #define _xhb_CPUID(INFO, LEAF, SUBLEAF) __cpuid_count(LEAF, SUBLEAF, INFO[0], INFO[1], INFO[2], INFO[3])
 
-int xhb_cpuid() {
+int get_current_cpuid() {
     int id = 0;
 
     unsigned int CPUInfo[4];

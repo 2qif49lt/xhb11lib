@@ -9,7 +9,7 @@
 #include <Processthreadsapi.h>
 #endif
 
-int xhb_cpuid() {
+int get_current_cpuid() {
     return (int)GetCurrentProcessorNumber();
 }
 
