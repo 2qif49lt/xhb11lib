@@ -15,34 +15,67 @@
          cout<<chbuff<<endl;
      }
  }
+
+
+ int main(int argc, const char * argv[]) {
+    
+    int i = 0;
+    {
+        defer([&i](){i++; cout << "a " << i <<endl;});
+        cout << i <<endl;
+        defer([&i](){i++; cout << "b " << i <<endl;});
+        
+    }
+    
+    return 0;
+}
+
  */
- #include<functional>
+#include <type_traits>
+#include <utility>
+
 namespace xhb
 {
- 
- class defer_
+ template<typename F>
+ class defer_impl
  {
  public:
-     explicit defer_(std::function<void()> onexit) : m_onexit(onexit),m_bdismiss(false){}
-     ~defer_()
-     {
-         if(!m_bdismiss)
-             m_onexit();
+     static_assert(std::is_nothrow_move_constructible<F>::value, "F must be noexcept");
+
+    defer_impl(F&& func) noexcept : _f(std::move(func)) {}
+    defer_impl(defer_impl&& d) noexcept : _f(std::move(d._f)),_bdismiss(d._bdismiss) {
+        d._bdismiss = true;
+    }
+    defer_impl(const defer_impl&) = delete;
+    defer_impl& operator=(const defer_impl&) = delete;
+    defer_impl& operator=(defer_impl&& other) noexcept {
+        if (this != &other) {
+            this->~defer_impl();
+            new (this) defer_impl(std::move(other));
+        }
+        return *this;
+    }
+     ~defer_impl() {
+         if(!_bdismiss)
+             _f();
      }
-     void dismiss(){m_bdismiss = true;}
+     void dismiss() {_bdismiss = true;}
  private:
-     std::function<void()> m_onexit;
-     bool m_bdismiss;
- 
- private:
-     defer_(const defer_& rhs);
-     defer_& operator= (const defer_& rhs);
+     F _f;
+     bool _bdismiss = false;
  };
  
-#define defer_name_cat(name,line) name##line
-#define defer_name(name,line) defer_name_cat(name,line)
-#define defer(fn) defer_ defer_name(defer_name_,__LINE__) (fn)
+ template<typename F>
+ inline defer_impl<F> get_defer(F&& func) {
+     return defer_impl<F>(std::forward<F>(func));
+ }
 
+#define PP_CAT(a, b) PP_CAT_I(a, b)
+#define PP_CAT_I(a, b) PP_CAT_II(~, a ## b)
+#define PP_CAT_II(p, res) res
+#define UNIQUE_NAME(prefix) PP_CAT(prefix, __COUNTER__)
+
+#define defer(fn)  auto UNIQUE_NAME(defer_) = xhb::get_defer(fn)
 
  }
 #endif //XHBLIB_DEFER_H_
