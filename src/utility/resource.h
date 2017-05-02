@@ -13,8 +13,8 @@ struct resource_config {
     size_t reserve_memory;
     unsigned int cpus;
     std::set<unsigned int> cpu_set;
-    size_t max_io_request;
-    unsigned int io_queues;
+    unsigned int max_io_request; // 单个队列最大请求数，可以为0默认128*队列数
+    unsigned int io_queues; // 队列数，为人则为cpu数
 };
 
 struct memory_t {
@@ -23,7 +23,7 @@ struct memory_t {
 };
 
 struct io_queue_t {
-    unsigned int id;
+    unsigned int id; // cpu index id
     size_t capacity;
 };
 
@@ -33,8 +33,8 @@ struct io_queue_topology_t {
 };
 
 struct cpu_t {
-    unsigned int cpu_id;
-    std::vector<memory> mems;
+    unsigned int cpu_id; //物理id
+    std::vector<memory_t> mems;
 };
 
 struct resource_t {
@@ -42,7 +42,7 @@ struct resource_t {
     io_queue_topology_t io_queues;
 };
 
-resource_t allocate_resource(const resource_config& config);
+resource_t allocate_resource(const resource_config& c);
 
 unsigned int get_pu_count();
 
