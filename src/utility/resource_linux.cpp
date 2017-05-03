@@ -1,5 +1,5 @@
 #if defined(__linux__)
-
+#include "resource.h"
 #include <sched.h>
 
 int get_current_cpuid() {
@@ -7,7 +7,7 @@ int get_current_cpuid() {
 }
 
 cpu_set_t get_cpuset(unsigned int cpuid) {
-    cup_set_t cpu;
+    cpu_set_t cpu;
     CPU_ZERO(&cpu);
     CPU_SET(cpuid,&cpu);
     return cpu;
@@ -69,14 +69,13 @@ struct distribute_objects {
     }
 };
 
-#define SHOULDBE(set_val, def_val) ((set_val != 0) ? (set_val) : (def_val))
 
 static io_queue_topology_t
 allocate_io_queues(hwloc_topology_t topo, resource_config c, vector<cpu_t> cpus) {
-    unsigned int num_io_queues = SHOULDBE(c.io_queues, cpus.size());
+    unsigned int num_io_queues = SHOULDOR(c.io_queues, cpus.size());
     if (num_io_queues > cpus.size()) num_io_queues = cpus.size();
 
-    unsigned int num_max_io_request = SHOULDBE(c.max_io_request, 128 * num_io_queues);
+    unsigned int num_max_io_request = SHOULDOR(c.max_io_request, 128 * num_io_queues);
 
     unsigned int depth = get_memory_depth(topo);
 
@@ -148,22 +147,7 @@ allocate_io_queues(hwloc_topology_t topo, resource_config c, vector<cpu_t> cpus)
 
 }
 
-size_t calculate_memory(resource_config c, size_t available_memory, float panic_factor = 1) {
-    size_t default_reserve_memory = std::max<size_t>(1 << 30, 0.05 * available_memory) * panic_factor;
-    auto reserve = SHOULDBE(c.reserve_memory, default_reserve_memory);
-    size_t min_memory = 500'000'000;
-    if (available_memory >= reserve + min_memory) {
-        available_memory -= reserve;
-    } else {
-        // Allow starting up even in low memory configurations (e.g. 2GB boot2docker VM)
-        available_memory = min_memory;
-    }
-    size_t mem = SHOULDBE(c.total_memory, available_memory);
-    if (mem > available_memory) {
-        throw std::runtime_error("insufficient physical memory");
-    }
-    return mem;
-}
+
 
 resource_t allocate_resource(const resource_config& c) {
     hwloc_topology_t topo;
@@ -206,7 +190,7 @@ resource_t allocate_resource(const resource_config& c) {
 
     // 获取cpu数
     unsigned int available_procs = (unsigned int)hwloc_get_nbobjs_by_type(topo, HWLOC_OBJ_PU);
-    unsigned int procs = SHOULDBE(c.cpus, available_procs);
+    unsigned int procs = SHOULDOR(c.cpus, available_procs);
     if (procs > available_procs) {
         throw std::runtime_error("insufficient processing units");
     }
@@ -272,8 +256,46 @@ unsigned int get_pu_count() {
 
 #else
 
+#include <unistd.h>
+
+static io_queue_topology_t
+allocate_io_queues(resource_config c, std::vector<cpu_t> cpus) {
+    io_queue_topology_t ret;
+
+    unsigned int nr_cpus = (unsigned int)cpus.size();
+    unsigned int max_io_requests = SHOULDOR(c.max_io_request, 128 * nr_cpus);
+
+    ret.shard_to_coordinator.resize(nr_cpus);
+    ret.coordinators.resize(nr_cpus);
+
+    for (unsigned int shard = 0; shard < nr_cpus; ++shard) {
+        ret.shard_to_coordinator[shard] = shard;
+        ret.coordinators[shard].capacity =  std::max(max_io_requests / nr_cpus, 1u);
+        ret.coordinators[shard].id = shard;
+    }
+    return ret;
+}
 
 
+resource_t allocate_resource(const resource_config& c) {
+    resource_t ret;
+
+    auto available_memory = ::sysconf(_SC_PAGESIZE) * size_t(::sysconf(_SC_PHYS_PAGES));
+    auto mem = calculate_memory(c, available_memory);
+    auto cpuset_procs = SHOULDOR(c.cpu_set.size(), get_pu_count();
+    auto procs = SHOULDOR(c.cpus, cpuset_procs);
+    ret.cpus.reserve(procs);
+    for (unsigned i = 0; i < procs; ++i) {
+        ret.cpus.push_back({i, {0, mem / procs}});
+    }
+
+    ret.io_queues = allocate_io_queues(c, ret.cpus);
+    return ret;
+}
+
+unsigned int get_pu_count() {
+    return ::sysconf(_SC_NPROCESSORS_ONLN);
+}
 
 
 #endif // XHBLIB_USE_HWLOC
