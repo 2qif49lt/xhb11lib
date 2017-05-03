@@ -1,6 +1,6 @@
 #include "resource.h"
 
-#ifdef __APPLE__
+#ifdef __APPLE__ 
 
 #include <cpuid.h>
 #include <unistd.h>
@@ -38,6 +38,7 @@ cpu_set_t get_cpuset(unsigned int cpuid) {
     return cpu;
 }
 
+#ifndef XHBLIB_USE_HWLOC
 
 static io_queue_topology_t
 allocate_io_queues(resource_config c, std::vector<cpu_t> cpus) {
@@ -78,4 +79,6 @@ unsigned int get_pu_count() {
     return ::sysconf(_SC_NPROCESSORS_ONLN);
 }
 
+
+#endif // XHBLIB_USE_HWLOC
 #endif // apple
