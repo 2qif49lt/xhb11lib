@@ -19,7 +19,9 @@ namespace xhb {
 
 #ifdef _MSC_VER
 #include <intrin.h>
-
+#if _MSC_VER < 1900
+#define constexpr 
+#endif
 #else
     #ifdef __clang__
         #if __clang_major__ < 5
@@ -122,7 +124,7 @@ inline unsigned int ctz(unsigned long long val) {
     #else
     unsigned int rh = (unsigned int)((val << 32) >> 32);
     unsigned int lh = (unsigned int)(val >> 32);
-    return rh ? ctz(rh) : ctz(ls) + 32;
+    return rh ? ctz(rh) : ctz(lh) + 32;
     #endif
     #else
     return val ? (unsigned int)__builtin_ctzll(val) : bits;
