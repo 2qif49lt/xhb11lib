@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <list>
 #include <tuple>
 
 namespace xhb {
@@ -39,7 +40,7 @@ std::ostream& operator<<(std::ostream& out, std::tuple<Args...> const& t) {
 
 // 打印vector
 template<typename T>
-std::ostream& operator <<( std::ostream& out, const std::vector<T>& object )
+std::ostream& operator <<(std::ostream& out, const std::vector<T>& object )
 {
     out << "[";
     if ( !object.empty() )
@@ -56,5 +57,24 @@ std::ostream& operator <<( std::ostream& out, const std::vector<T>& object )
     return out;
 }
 
+// 打印list
+template<typename T>
+std::ostream& operator<<(std::ostream& out, const std::list<T>& object)
+{
+    out << "[";
+    if (!object.empty()) {
+        for(typename std::list<T>::const_iterator
+            iter = object.begin();
+            iter != --object.end();
+            ++iter) {
+                out << *iter << " ";
+        }
+        out << *--object.end();
+    }
+    
+    out << "]";
+    return out;
+}
+ 
 } // std namespace
 #endif // XHB_PRETTY_PRINTER_H_
