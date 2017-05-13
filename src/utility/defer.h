@@ -33,7 +33,7 @@
  */
 #include <type_traits>
 #include <utility>
-
+#include "common.h"
 namespace xhb
 {
  template<typename F>
@@ -69,11 +69,6 @@ namespace xhb
  inline defer_impl<F> get_defer(F&& func) {
      return defer_impl<F>(std::forward<F>(func));
  }
-
-#define PP_CAT(a, b) PP_CAT_I(a, b)
-#define PP_CAT_I(a, b) PP_CAT_II(~, a ## b)
-#define PP_CAT_II(p, res) res
-#define UNIQUE_NAME(prefix) PP_CAT(prefix, __COUNTER__)
 
 #define defer(fn)  auto UNIQUE_NAME(defer_) = xhb::get_defer(fn)
 
