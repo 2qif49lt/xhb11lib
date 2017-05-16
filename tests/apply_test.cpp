@@ -1,6 +1,6 @@
 #ifdef XHBLIB_APPLY_UNIT_TEST
 
-#include "src/apply.h"
+#include "src/utility/apply.h"
 
 #include <cassert>
 #include <string>
@@ -10,6 +10,7 @@
 #include <functional> // ref
 
 using namespace std;
+using namespace xhb;
 
 void func_ref(int a,string& b,int c){
     b += b;
