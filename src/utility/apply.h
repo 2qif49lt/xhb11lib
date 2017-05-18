@@ -21,11 +21,26 @@ struct apply_helper<F, T, std::index_sequence<I...>> {
     }
 };
 
-template<typename F, typename T>
-decltype(auto) apply(F&& fun, T&& tup) {
-    constexpr auto SIZE = std::tuple_size<typename std::decay<T>::type>::value;
-    return apply_helper<F,T,std::make_index_sequence<SIZE>>::apply(std::forward<F>(fun),
-        std::forward<T>(tup));
+
+template<typename F, typename... T>
+decltype(auto) apply(F&& fun, std::tuple<T...>&& tup) {
+    constexpr auto SIZE = std::tuple_size<std::tuple<T...>>::value;
+    return apply_helper<F, std::tuple<T...>&&, std::make_index_sequence<SIZE>>::apply(std::forward<F>(fun),
+        std::move(tup));
+}
+
+template<typename F, typename... T>
+decltype(auto) apply(F&& fun, std::tuple<T...>& tup) {
+    constexpr auto SIZE = std::tuple_size<std::tuple<T...>>::value;
+    return apply_helper<F, std::tuple<T...>&, std::make_index_sequence<SIZE>>::apply(std::forward<F>(fun),
+        tup);
+}
+
+template<typename F, typename... T>
+decltype(auto) apply(F&& fun, const std::tuple<T...>& tup) {
+    constexpr auto SIZE = std::tuple_size<std::tuple<T...>>::value;
+    return apply_helper<F, const std::tuple<T...>&, std::make_index_sequence<SIZE>>::apply(std::forward<F>(fun),
+        tup);
 }
 
 template<typename F, typename... A>
