@@ -23,7 +23,7 @@ struct func_traits<R(A...)> {
         using type = typename std::tuple_element<N, args_tuple>::type;
     };
     template<std::size_t N>
-    using args_type = typename arg<N>::type;
+    using arg_t = typename arg<N>::type;
 };
 
 template<typename R, typename... A>
@@ -35,6 +35,7 @@ struct func_traits<R(T::*)(A...)> : public func_traits<R(A...)> {};
 template<typename T, typename R, typename... A>
 struct func_traits<R(T::*)(A...) const> : public func_traits<R(A...)> {};
 
+// 函数对象
 template<typename T>
 struct func_traits : public func_traits<decltype(&T::operator())> {};
 
