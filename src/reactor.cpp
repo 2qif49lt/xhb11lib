@@ -22,4 +22,14 @@ void engine_exit(std::exception_ptr eptr) {
     // 非正常退出。
 }
 
+
+future<> later() {
+    promise<> p;
+    auto f = p.get_future();
+    engine().force_poll();
+    schedule(make_task([p = std::move(p)] () mutable {
+        p.set_value();
+    }));
+    return f;
+}
 } // xhb namespace

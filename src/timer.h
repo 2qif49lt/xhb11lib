@@ -51,7 +51,7 @@ public:
     explicit timer(callback_t&& cb) : _cb(std::move(cb)) {}
     ~timer() {
         if (_queued) {
-            // 删除
+            // 删除 todo
         }
     }
     void set_callback(callback_t&& cb) {
@@ -59,7 +59,7 @@ public:
     }
     void arm(time_point until, optional<duration> period = {}) {
         arm_helper(until, period);
-        // 添加进time_line
+        // 添加进time_line todo
     }
     void arm(duration deferral) {
         arm_helper(clock::now() + deferral);
@@ -70,7 +70,7 @@ public:
 
     bool cancel() {
         if (_queued) {
-            // 删除
+            // 删除 todo
 
         }
         return true;
