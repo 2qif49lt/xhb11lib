@@ -32,6 +32,7 @@ public:
 
 int main(int argc, const char * argv[]) {
 	unique_ptr<test_unique_base, deleter> pb(new test_unique_derived);
+    assert(xhb::is_smart_ptr<decltype(pb)>::value);
 	pb->func();
 	unique_ptr<test_unique_derived,deleter> pd = xhb::unique_ptr_cast<test_unique_derived>(move(pb));
 	assert(!pb);
@@ -49,6 +50,7 @@ int main(int argc, const char * argv[]) {
 	pd3->func();
 
 	unique_ptr<test_unique_base> pb4 = make_unique<test_unique_derived>();
+    assert(xhb::is_smart_ptr<decltype(pb4)>::value);
 	unique_ptr<test_unique_derived> pd4 = xhb::dynamic_unique_ptr_cast<test_unique_derived>(move(pb4));
 	assert(!pb4);
 	pd4->func();

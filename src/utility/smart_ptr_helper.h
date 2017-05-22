@@ -41,5 +41,20 @@ dynamic_unique_ptr_cast(std::unique_ptr<B>&& p) {
     return std::unique_ptr<D>(nullptr);
 }
 
+// 判断是否是智能指针
+
+template<typename T>
+struct is_smart_ptr : std::false_type {};
+
+template<typename T>
+struct is_smart_ptr<std::unique_ptr<T>> : std::true_type {};
+
+template<typename T, typename D>
+struct is_smart_ptr<std::unique_ptr<T, D>> : std::true_type {};
+    
+
+template<typename T>
+struct is_smart_ptr<std::shared_ptr<T>> : std::true_type {};
+
 } // xhb namespace
 #endif // XHBLIB_UTILITY_SMART_POINTER_HELPER_H_
