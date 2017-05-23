@@ -1,10 +1,11 @@
-#include "actor.h"
+#include "reactor.h"
 
 
 namespace xhb {
 
-__thread bool g_need_preempt;
-__thread reactor* local_engine
+
+thread_local bool g_need_preempt;
+thread_local reactor* local_engine
 
 void schedule(std::unique_ptr<task> t) {
     engine().add_task(std::move(t));
@@ -32,4 +33,6 @@ future<> later() {
     }));
     return f;
 }
+
+
 } // xhb namespace

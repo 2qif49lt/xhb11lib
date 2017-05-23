@@ -1,7 +1,5 @@
 #include "future.h"
-#include "actor.h"
-#include "utility/apply.h"
-#include "utility/function_traits.h"
+
 
 namespace xhb {
 
@@ -9,6 +7,12 @@ template <typename... T, typename... A>
 future<T...> make_ready_future(A&&... value) {
     return future<T...>(ready_future_marker(), std::forward<A>(value)...);
 }
+
+template <typename... T, typename... A>
+future<T...> make_ready_future(std::tuple<A...>&& tup) {
+    return future<T...>(ready_future_from_tuple_marker(), std::forward<std::tuple<A...>>(tup));
+}
+
 
 template <typename... T>
 future<T...> make_exception_future(std::exception_ptr expt) {
@@ -153,7 +157,7 @@ future<T...> futurize<future<T...>>::make_exception_future(A&& arg) {
 
 template<typename... T>
 template<typename F, typename... As>
-futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, As&&... args) {
+typename futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, As&&... args) {
     try {
         return xhb::apply(std::forward<F>(func), std::forward<As>(args)...);
     } catch (...) {
@@ -162,7 +166,7 @@ futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, As&&... arg
 }
 template<typename... T>
 template<typename F, typename... As>
-futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, std::tuple<As...>&& tup) {
+typename futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, std::tuple<As...>&& tup) {
     try {
         return xhb::apply(std::forward<F>(func), std::move(tup));
     } catch (...) {

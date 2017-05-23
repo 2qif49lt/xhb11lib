@@ -224,6 +224,20 @@ optional<thread_clock::time_point> thread_scheduling_group::next_scheduling_poin
 
 namespace thread_impl {
 
+thread_context* get() {
+    return g_current_context->_thread;
+}
+
+bool should_yield() {
+    if (need_preempt()) {
+        return true;
+    } else if (g_current_context->_yield_at) {
+        return std::chrono::steady_clock::now() >= *(g_current_context->_yield_at);
+    } else {
+        return false;
+    }
+}
+
 void yield() {
     g_current_context->thread->yield();
 }

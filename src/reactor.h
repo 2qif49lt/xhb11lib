@@ -3,12 +3,16 @@
 
 #include <exception>
 #include <memory>
+#include <chrono>
 
+#include "utility/optional.h"
 #include "task.h"
 #include "future.h"
 
 namespace xhb {
 
+// thread_local 与 __thread 在特殊情况下有细微区别
+// https://stackoverflow.com/questions/13106049/what-is-the-performance-penalty-of-c11-thread-local-variables-in-gcc-4-8/13123870#13123870
 extern __thread reactor* local_engine;
 extern __thread size_t task_quota;
 

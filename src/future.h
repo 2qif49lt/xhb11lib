@@ -7,9 +7,12 @@
 #include <utility>
 #include <cassert>
 
-#include "actor.h"
+#include "utility/apply.h"
+#include "utility/function_traits.h"
+#include "reactor.h"
 #include "task.h"
 #include "preempt.h"
+#include "thread_impl.h"
 
 namespace xhb {
 
@@ -21,6 +24,9 @@ class future;
 
 template <typename... T, typename... A>
 future<T...> make_ready_future(A&&... value);
+
+template <typename... T, typename... A>
+future<T...> make_ready_future(std::tuple<A...>&& tup);
 
 template <typename... T>
 future<T...> make_exception_future(std::exception_ptr value);
@@ -237,7 +243,6 @@ public:
         assert(_state != state::future);
         if (_state == state::exception) {
             std::rethrow_exception(std::move(_expt));
-            _state = state::invalid;
         }
         return {};
     }
@@ -287,6 +292,7 @@ class promise {
     future_state<T...>* _state;
     std::uique_ptr<task> _task;
 public:
+    // 创建无future关联的promise
     promise() noexcept : _state(&_local_state) {}
     promise(promise&& other) noexcept : _future(other._future), _state(other._state), _task(std::move(other._task)) {
         if (other._state == &other._local_state) {
@@ -310,9 +316,12 @@ public:
     }
     promise& operator=(const promise&) = delete;
 
-    // 获取对应的future.
+    // 获取关联的future,只能调用一次。
+    // 关联后无论双方是否被move,当promise执行set_value/set_exception,future状态会立即就绪
+    // 如果future附带了continuation，则会被执行。
     future<T...> get_future();
 
+    // set_* 系列可以在get_future调用之前或之后调用。
     void set_value(const std::tuple<T...>& rst) {
         do_set_value<urgent::no>(rst);
     } 
@@ -503,7 +512,7 @@ private:
     template<typename F>
     void schedule(F&& func) {
         if (state()->available()) {
-            schedule(std::make_unique<continuation<F, T...>>(std::forward<F>(func), std::move(*state())));
+            xhb::schedule(std::make_unique<continuation<F, T...>>(std::forward<F>(func), std::move(*state())));
         } else {
             _promise->schedule(std::forward<F>(func));
             _promise->_future = nullptr;
@@ -580,8 +589,8 @@ public:
     std::tuple<T...> get() {
         if (!state()->available()) {
             wait();
-        } else if (/* thread todo*/) {
-            // todo
+        } else if (thread_impl::get() && thread_impl::should_yield()) {
+            thread_impl::yield();
         }
         return get_available_state().get();
     }
@@ -594,9 +603,16 @@ public:
     }
 
     void wait() {
-        // 启动线程 todo
+        auto thd = thread_impl::get();
+        assert(thd);
+        schedule([this, thd] (future_state<T...>&& new_state) {
+            *state() = std::move(new_state);
+            thread_impl::switch_in(thd);
+        });
+        thread_impl::switch_out(thd);
     }
 
+    // pr 未关联的promise
     void forward_to(promist<T...>&& pr) {
         if (state()->available()) {
             state()->forward_to(pr);
@@ -606,7 +622,7 @@ public:
             _promise = nullptr;
         }
     }
-    // then
+    // then，安排代码在当前future完成后接着执行
     // 如果当前future出现异常，则直接返回当前异常
     template<typename F, typename R = futurize_t<std::result_of_t<F(T&&...)>>>
     R then(F&& func) noexcept {
@@ -635,7 +651,7 @@ public:
     }
 
     // then_warpped 
-    // 不论当前future的结果，继续执行F
+    // 不论当前future的结果是否是异常，继续执行F
     template<typename F, typename R = futurize_t<std::result_of_t<F(future)>>>
     R then_warpped(F&& func) noexcept {
         using futurator = futurize<std::result_of_t<F(future)>>;
@@ -730,6 +746,9 @@ public:
 
     template<typename... U, typename... A>
     friend future<U...> make_ready_future(A&& value);
+
+    template <typename... T, typename... A>
+    friend future<T...> make_ready_future(std::tuple<A...>&& tup);
 
     template<typename... U>
     friend future<U...> make_exception_future(std::exception_ptr expt);

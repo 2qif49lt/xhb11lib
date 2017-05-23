@@ -5,9 +5,12 @@
 #include <atomic>
 #include <utiltiy>
 #include <functional>
+
 #include <boost/intrusive/list>
+
 #include "utility/optional.h"
 #include "time_liner.h"
+
 namespace xhb {
 
 template<typename Clock = std::chrono::steady_clock>
@@ -28,7 +31,7 @@ private:
     bool _armed = false;
     bool _queued = false;
     bool _expired = false;
-
+    void readd_periodic();
     void arm_helper(time_point until, optional<duration> period) {
         assert(_armed == false);
         _period = period;
@@ -49,32 +52,20 @@ public:
             t._expired = false;
         }
     explicit timer(callback_t&& cb) : _cb(std::move(cb)) {}
-    ~timer() {
-        if (_queued) {
-            // 删除 todo
-        }
-    }
+    ~timer();
     void set_callback(callback_t&& cb) {
         _cb = std::move(cb);
     }
-    void arm(time_point until, optional<duration> period = {}) {
-        arm_helper(until, period);
-        // 添加进time_line todo
-    }
+    void arm(time_point until, optional<duration> period = {});
+    void rearm(time_point until, optional<duration> period = {});
     void arm(duration deferral) {
-        arm_helper(clock::now() + deferral);
+        arm(clock::now() + deferral);
     }
     void arm_periodic(duration deferral) {
-        arm_helper(clock::now() + deferral, optional<duration>{deferral});
+        arm(clock::now() + deferral, optional<duration>{deferral});
     }
-
-    bool cancel() {
-        if (_queued) {
-            // 删除 todo
-
-        }
-        return true;
-    }
+    bool armed() const { return _armed; }
+    bool cancel();
     time_point get_timeout() const {
         return _expiry;
     }

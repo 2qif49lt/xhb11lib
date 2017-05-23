@@ -1,8 +1,9 @@
 #ifndef XHBLIB_PREEMPT_H_
 #define XHBLIB_PREEMPT_H_
 
-#pragma once
 #include <atomic>
+
+namespace xhb {
 
 extern thread_local bool g_need_preempt;
 
@@ -17,4 +18,5 @@ inline bool need_preempt() {
 #endif
 }
 
+} // xhb namespace
 #endif // XHBLIB_PREEMPT_H_
