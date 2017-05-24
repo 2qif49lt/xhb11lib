@@ -1,14 +1,13 @@
 #ifndef XHBLIB_DO_WITH_H_
 #define XHBLIB_DO_WITH_H_
 
-#include "apply.hh"
 #include <utility>
 #include <memory>
 #include <tuple>
 
+#include "utility/apply.h"
+
 namespace xhb {
-/// \addtogroup future-util
-/// @{
 
 /// do_with() holds an object alive for the duration until a future
 /// completes, and allow the code involved in making the future
@@ -32,6 +31,7 @@ namespace xhb {
 template<typename T, typename F>
 inline
 auto do_with(T&& rvalue, F&& f) {
+    // 只能为临时对象
     auto obj = std::make_unique<T>(std::forward<T>(rvalue));
     auto fut = f(*obj);
     return fut.then_wrapped([obj = std::move(obj)] (auto&& fut) {
@@ -39,14 +39,12 @@ auto do_with(T&& rvalue, F&& f) {
     });
 }
 
-/// \cond internal
 template <typename Tuple, size_t... Idx>
 inline
 auto
 cherry_pick_tuple(std::index_sequence<Idx...>, Tuple&& tuple) {
     return std::make_tuple(std::get<Idx>(std::forward<Tuple>(tuple))...);
 }
-/// \endcond
 
 /// Executes the function \c func making sure the lock \c lock is taken,
 /// and later on properly released.

@@ -31,7 +31,6 @@ void schedule_urgent(std::unique_ptr<task> t);
 
 void engine_exit(std::exception_ptr eptr);
 
-future<> later();
 } // xhb namespace
 
 #endif // XHBLIB_ACTOR_H_

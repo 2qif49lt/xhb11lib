@@ -737,7 +737,7 @@ public:
     template <typename F>
     future<T...> handle_exception_type(F&& func) noexcept;
 
-    void ignore_read_future() noexcept {
+    void ignore_ready_future() noexcept {
         state()->ignore();
     }
 
