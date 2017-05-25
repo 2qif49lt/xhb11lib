@@ -1,8 +1,12 @@
 #ifndef XHBLIB_SHARED_FUTURE_H_
 #define XHBLIB_SHARED_FUTURE_H_
 
+#include <memory>
+#include <exception>
+
 #include "future.h"
-#include "expiring_fifo.hh"
+#include "expiring_fifo.h"
+#include "lowres_clock.h"
 
 namespace xhb {
 
@@ -126,11 +130,11 @@ private:
         }
     };
     /// \endcond
-    lw_shared_ptr<shared_state> _state;
+    shared_ptr<shared_state> _state;
 public:
     /// \brief Forwards the result of future \c f into this shared_future.
     shared_future(future_type&& f)
-        : _state(make_lw_shared<shared_state>())
+        : _state(make_shared<shared_state>())
     {
         f.then_wrapped([s = _state] (future_type&& f) mutable {
             s->resolve(std::move(f));
@@ -221,7 +225,7 @@ public:
     /// \brief Marks the shared_promise as failed, same as normal promise
     template<typename Exception>
     void set_exception(Exception&& e) noexcept {
-        set_exception(make_exception_ptr(std::forward<Exception>(e)));
+        set_exception(std::make_exception_ptr(std::forward<Exception>(e)));
     }
 };
 

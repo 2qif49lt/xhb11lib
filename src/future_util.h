@@ -18,9 +18,6 @@
 
 namespace xhb {
 
-extern thread_local size_t task_quota;
-
-
 struct parallel_for_each_state {
     // use optional<> to avoid out-of-line constructor
     optional<std::exception_ptr> ex;

@@ -5,10 +5,12 @@
 #include <optional>
 using std::optional;
 using std::nullopt;
+using std::make_optional;
 #else
 #include <experimental/optional>
 using std::experimental::optional;
 using std::experimental::nullopt;
+using std::make_optional;
 #endif
 
 #endif // XHBLIB_UTILITY_OPTIONAL_H_

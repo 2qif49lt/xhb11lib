@@ -11,6 +11,7 @@
 #include <cmath> // ceil
 #include <cstdlib> // malloc
 
+namespace xhb {
 
 template<typename T,
     size_t BLOCK_ITEM_SIZE = 128,
@@ -207,4 +208,6 @@ private:
             new_back_block();
     }
 };
+
+} // xhb namespace
 #endif // XHBLIB_LINK_QUEUE_H_

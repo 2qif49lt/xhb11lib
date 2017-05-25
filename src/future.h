@@ -545,7 +545,7 @@ private:
     }
 
     template<typename... U>
-    friend class shared_future; // todo
+    friend class shared_future;
 public:
     using value_type = std::tuple<T...>;
     using promise_type = promise<T...>;

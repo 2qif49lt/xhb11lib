@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <limits>
 
+namespace xhb {
+
 template < typename T,typename Alloc = std::allocator<T>>
 class rueue final{
     struct impl:Alloc{
@@ -558,4 +560,6 @@ private:
         }
     }
 };
+
+} // xhb namespace
 #endif // XHBLIB_RING_QUEUE_H_
