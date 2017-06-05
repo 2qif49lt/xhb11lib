@@ -11,7 +11,6 @@
 #include <functional>
 #include <system_error>
 
-
 namespace xhb {
 
 inline void throw_system_error_on(bool condition, const char* what_arg = "");
