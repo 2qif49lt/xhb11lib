@@ -107,4 +107,72 @@ void smp::create_thread(std::function<void ()> thread_loop) {
     _threads.emplace_back(std::move(thread_loop));
 }
 
+// Installs handler for Signal which ensures that Func is invoked only once
+// in the whole program and that after it is invoked the default handler is restored.
+template<int Signal, void(*Func)()>
+void install_oneshot_signal_handler() {
+    static bool handled = false;
+    static spinlock lock;
+
+    struct sigaction sa;
+    sa.sa_sigaction = [](int sig, siginfo_t *info, void *p) {
+        std::lock_guard<spinlock> g(lock);
+        if (!handled) {
+            handled = true;
+            Func();
+            signal(sig, SIG_DFL);
+        }
+    };
+    sigfillset(&sa.sa_mask);
+    sa.sa_flags = SA_SIGINFO | SA_RESTART;
+    if (Signal == SIGSEGV) {
+        sa.sa_flags |= SA_ONSTACK;
+    }
+    auto r = ::sigaction(Signal, &sa, nullptr);
+    throw_system_error_on(r == -1);
+}
+
+static void sigsegv_action() noexcept {
+    print_safe("Segmentation fault\n");
+}
+
+static void sigabrt_action() noexcept {
+    print_safe("Aborting\n");
+}
+
+void smp::configure(resource_config& rc) {
+    sigset_t sigs;
+    sigfillset(&sigs);
+
+    for (auto sig : {SIGHUP, SIGQUIT, SIGILL, SIGABRT, SIGFPE, SIGSEGV,
+            SIGALRM, SIGCONT, SIGSTOP, SIGTSTP, SIGTTIN, SIGTTOU}) {
+        sigdelset(&sigs, sig);
+    }
+
+    pthread_sigmask(SIG_BLOCK, &sigs, nullptr);
+
+    install_oneshot_signal_handler<SIGSEGV, sigsegv_action>();
+    install_oneshot_signal_handler<SIGABRT, sigabrt_action>();
+
+    auto thread_affinity = true;
+
+    smp::count = 1;
+    smp::_tmain = std::this_thread::get_id();
+    auto nr_cpus = get_pu_count();
+    smp::count = nr_cpus;
+    _reactors.resize(nr_cpus);
+
+    // huge pages path
+    // mlockall
+
+    auto resources = allocate_resource(rc);
+    std::vector<cpu_t> allocations = std::move(resources.cpus);
+    if (thread_affinity) {
+        smp::pin(allocations[0].cpu_id);
+    }
+
+    memory::configure(allocations[0].mem, hugepages_path);
+    
+}
+
 } // xhb namespace

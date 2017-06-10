@@ -9,11 +9,16 @@
 
 #include <type_traits>
 #include <thread>
+#include <mutex>
 #include <vector>
 #include <memory>
+#include <functional>
 
 #include "utility/optional.h"
 #include "utility/memory_align.h"
+#include "utility/spinlock.h"
+#include "utility/print_safe.h"
+#include "utility/resource.h"
 #include "posix.h"
 #include "future.h"
 #include "future_util.h"
@@ -36,7 +41,7 @@ public:
     static bool main_thread() { return std::this_thread::get_id() == _tmain; }
     static void arrive_at_event_loop_end();
 
-    static void configure();
+    static void configure(resource_config& rc);
     static void cleanup();
     static void cleanup_cpu();
     static void join_all();
