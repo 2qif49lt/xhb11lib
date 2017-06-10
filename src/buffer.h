@@ -15,7 +15,7 @@ namespace xhb {
 class buffer final{
     char* _buf = nullptr;
     size_t _size = 0;
-    cleaner _cleaner;
+    cleaner _cleaner; // 0 copy支持
 
 public:
     // 空缓冲
