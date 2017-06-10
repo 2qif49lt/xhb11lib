@@ -11,6 +11,7 @@
 #define YieldProcessor()  _mm_pause()
 #endif
 
+namespace xhb {
 // memory order
 // http://preshing.com/20120913/acquire-and-release-semantics/
 // The role of a release fence, as defined by the C++11 standard, 
@@ -32,5 +33,5 @@ public:
     }
 };
 
-
+} // xhb namespace
 #endif // XHBLIB_SPIN_LOCK_H_
