@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 #include <sched.h>
+#include <signal.h>
 
 #include <assert.h>
 
@@ -88,6 +89,28 @@ void throw_pthread_error(T r) {
     if (r != 0) {
         throw std::system_error(r, std::system_category());
     }
+}
+
+inline
+sigset_t make_sigset_mask(int signo) {
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, signo);
+    return set;
+}
+
+inline
+sigset_t make_full_sigset_mask() {
+    sigset_t set;
+    sigfillset(&set);
+    return set;
+}
+
+inline
+sigset_t make_empty_sigset_mask() {
+    sigset_t set;
+    sigemptyset(&set);
+    return set;
 }
 
 inline
