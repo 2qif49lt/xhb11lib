@@ -1,4 +1,5 @@
 #include "smp.h"
+#include "reactor.h"
 
 namespace xhb {
 
@@ -171,8 +172,38 @@ void smp::configure(resource_config& rc) {
         smp::pin(allocations[0].cpu_id);
     }
 
-    memory::configure(allocations[0].mem, hugepages_path);
+    // cpu memory
+
+    static boost::barrier inited(smp::count);
     
+    _all_event_loops_done.emplace(smp::count);
+
+    unsigned int i;
+    for (i = 1; i < smp::count; i++) {
+        auto allocation = allocations[i];
+        create_thread([rc, i, allocation, thread_affinity] {
+            stringstream ss;
+            ss << "reactor-{" << i << "}";
+            auto thread_name = ss.str();
+            pthread_setname_np(pthread_self(), thread_name.c_str());
+            if (thread_affinity) {
+                smp::pin(allocation.cpu_id);
+            }
+            sigset_t mask;
+            sigfillset(&mask);
+            for (auto sig : { SIGSEGV }) {
+                sigdelset(&mask, sig);
+            }
+            auto r = ::pthread_sigmask(SIG_BLOCK, &mask, NULL);
+            throw_pthread_error(r);
+            allocate_reactor(i);
+            _reactors[i] = &engine();
+
+            inited.wait();
+            engine().configure(rc);
+            engine().run();
+        });
+    }
 }
 
 } // xhb namespace

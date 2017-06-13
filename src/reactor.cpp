@@ -5,7 +5,7 @@ namespace xhb {
 
 
 thread_local bool g_need_preempt;
-thread_local reactor* local_engine
+thread_local reactor* local_engine;
 
 void schedule(std::unique_ptr<task> t) {
     engine().add_task(std::move(t));

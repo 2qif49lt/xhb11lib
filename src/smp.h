@@ -11,6 +11,7 @@
 #include <thread>
 #include <mutex>
 #include <vector>
+#include <sstream>
 #include <memory>
 #include <functional>
 
@@ -22,6 +23,7 @@
 #include "posix.h"
 #include "future.h"
 #include "future_util.h"
+
 
 namespace xhb {
 
