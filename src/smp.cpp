@@ -14,17 +14,10 @@ thread_local std::unique_ptr<reactor, reactor_deleter> reactor_holder;
 
 
 std::vector<posix_thread> smp::_threads;
-optional<boost::barrier> smp::_all_event_loops_done;
 std::vector<reactor*> smp::_reactors;
-smp_message_queue** smp::_qs;
 std::thread::id smp::_tmain;
 unsigned smp::count = 1;
 
-void smp::arrive_at_event_loop_end() {
-    if (_all_event_loops_done) {
-        _all_event_loops_done->wait();
-    }
-}
 
 void smp::join_all()
 {
@@ -35,56 +28,6 @@ void smp::join_all()
 
 void smp::cleanup() {
     smp::_threads = std::vector<posix_thread>();
-}
-
-void smp::cleanup_cpu() {
-    size_t cpuid = engine().cpu_id();
-
-    if (_qs) {
-        for(unsigned i = 0; i < smp::count; i++) {
-            _qs[i][cpuid].stop();
-        }
-    }
-}
-
-bool smp::poll_queues() {
-    size_t got = 0;
-    for (unsigned i = 0; i < count; i++) {
-        if (engine().cpu_id() != i) {
-            auto& rxq = _qs[engine().cpu_id()][i];
-            rxq.flush_response_batch();
-            got += rxq.has_unflushed_responses();
-            got += rxq.process_incoming();
-            auto& txq = _qs[i][engine()._id];
-            txq.flush_request_batch();
-            got += txq.process_completions();
-        }
-    }
-    return got != 0;
-}
-
-bool smp::pure_poll_queues() {
-    for (unsigned i = 0; i < count; i++) {
-        if (engine().cpu_id() != i) {
-            auto& rxq = _qs[engine().cpu_id()][i];
-            rxq.flush_response_batch();
-            auto& txq = _qs[i][engine()._id];
-            txq.flush_request_batch();
-            if (rxq.pure_poll_rx() || txq.pure_poll_tx() || rxq.has_unflushed_responses()) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-void smp::start_all_queues()
-{
-    for (unsigned c = 0; c < count; c++) {
-        if (c != engine().cpu_id()) {
-            _qs[c][engine().cpu_id()].start(c);
-        }
-    }
 }
 
 void smp::pin(unsigned cpu_id) {
@@ -176,11 +119,9 @@ void smp::configure(resource_config& rc) {
 
     static boost::barrier inited(smp::count);
     
-    _all_event_loops_done.emplace(smp::count);
-
     unsigned int i;
     for (i = 1; i < smp::count; i++) {
-        auto allocation = allocations[i];
+        auto allocation = allocations[i % allocations.size()];
         create_thread([rc, i, allocation, thread_affinity] {
             stringstream ss;
             ss << "reactor-{" << i << "}";
@@ -204,6 +145,13 @@ void smp::configure(resource_config& rc) {
             engine().run();
         });
     }
+
+     allocate_reactor(0);
+    _reactors[0] = &engine();
+
+    inited.wait();
+    engine().configure(rc);
+
 }
 
 } // xhb namespace
