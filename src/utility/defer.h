@@ -70,7 +70,7 @@ namespace xhb
      return defer_impl<F>(std::forward<F>(func));
  }
 
-#define defer(fn)  auto UNIQUE_NAME(defer_) = xhb::get_defer(fn)
+#define defer(...)  auto UNIQUE_NAME(defer_) = xhb::get_defer(__VA_ARGS__)
 
  }
 #endif //XHBLIB_DEFER_H_
