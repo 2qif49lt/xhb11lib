@@ -12,7 +12,7 @@ clang++ test_utils.cpp test_test.cpp -O2 -o test -std=c++14 -I../src
 
 TEST_CASE(test_example) {
     std::cout << "test case example" << std::endl;
-    return 0;
+    return 1;
 }
 
 TEST_CASE(test_random) {
