@@ -129,18 +129,6 @@ void thread_context::switch_out() {
     _context.switch_out();
 }
 
-bool thread_context::should_yield() const {
-    if (!_attr.scheduling_group) {
-        return need_preempt();
-    }
-    return need_preempt() || bool(_attr.scheduling_group->next_scheduling_point());
-}
-
-void thread_context::reschedule() {
-    _preempted_threads.erase(_preempted_threads.iterator_to(*this));
-    _sched_promise->set_value();
-}
-
 void thread_context::yield() {
     if (!_attr.scheduling_group) {
         later().get();

@@ -53,16 +53,11 @@ class thread_context {
     timer<> _sched_timer{[this] { reschedule(); }};
     optional<promise<>> _sched_promise;
 
-    using preempted_thread_list = bi::list<thread_context,
-        bi::member_hook<thread_context, bi::list_member_hook<>,
-        &thread_context::_preempted_link>,
-        bi::constant_time_size<false>>;
     using all_thread_list = bi::list<thread_context,
         bi::member_hook<thread_context, bi::list_member_hook<>,
         &thread_context::_all_link>,
         bi::constant_time_size<false>>;
     
-    static thread_local preempted_thread_list _preempted_threads;
     static thread_local all_thread_list _all_threads;
 
 private:
@@ -75,8 +70,6 @@ public:
     ~thread_context();
     void switch_in();
     void switch_out();
-    bool should_yield() const;
-    void reschedule();
     void yield();
     friend class thread;
     friend void thread_impl::switch_in(thread_context*);
