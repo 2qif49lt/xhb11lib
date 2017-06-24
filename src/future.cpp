@@ -48,9 +48,9 @@ void promise<T...>::make_ready() {
     if (_task) {
         _state = nullptr;
         if (U == urgent::yes && !need_prempt()) {
-            schedule_urgent(std::move(_task));
+            xhb::schedule_urgent(std::move(_task));
         } else {
-            schedule(std::move(_task));
+            xhb::schedule(std::move(_task));
         }
     }
 }
@@ -64,9 +64,9 @@ future<T...> promise<T...>::get_future() {
 // futurize<T>
 
 template<typename T>
-template<typename A>
-typename futurize<T>::type futurize<T>::make_exception_future(A&& arg) {
-    return xhb::make_exception_future<T>(std::forward<A>(arg);
+template<typename E>
+typename futurize<T>::type futurize<T>::make_exception_future(E&& ex) {
+    return xhb::make_exception_future<T>(std::forward<E>(ex);
 }
 
 template<typename T>
@@ -91,9 +91,9 @@ typename futurize<T>::type futurize<T>::apply(F&& func, As&&... args) noexcept {
 
 // futurie<void>
 
-template<typename A>
-typename futurize<void>::type futurize<void>::make_exception_future(A&& arg) {
-    return xhb::make_exception_future<>(std::forward<A>(arg));
+template<typename E>
+typename futurize<void>::type futurize<void>::make_exception_future(E&& ex) {
+    return xhb::make_exception_future<>(std::forward<E>(ex));
 }
 
 template<typename F, typename... As>
@@ -150,9 +150,9 @@ typename futurize<void>::type futurize<void>::apply(F&& func, As&&... args) noex
 // futurize<future<T...>>
 
 template<typename... T>
-template<typename A>
-future<T...> futurize<future<T...>>::make_exception_future(A&& arg) {
-    return xhb::make_exception_future<T...>(std::forward<A>(arg));
+template<typename E>
+future<T...> futurize<future<T...>>::make_exception_future(E&& ex) {
+    return xhb::make_exception_future<T...>(std::forward<E>(ex));
 }
 
 template<typename... T>
