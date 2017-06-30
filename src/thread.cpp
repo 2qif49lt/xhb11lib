@@ -3,40 +3,37 @@
 
 #include <system_error>
 
-#include "thread.h"
+#include <unistd.h>
 
+#include "thread.h"
 namespace xhb {
 
 thread_local jmp_buf_link g_unthreaded_context;
 thread_local jmp_buf_link* g_current_context;
 
+thread_local jmp_buf_link* g_previous_context;
 
-// hmp_buf_link 
-
-void jmp_buf_link::initial_switch_in(ucontext_t* initial_context, const void*, size_t)
+void jmp_buf_link::initial_switch_in(ucontext_t* initial_context)
 {
     auto prev = std::exchange(g_current_context, this);
     _link = prev;
-    if (setjmp(prev->_jmpbuf) == 0) {
-        setcontext(initial_context);
-    }
+    g_previous_context = prev;
+    swapcontext(&prev->_context, initial_context);
 }
 
 inline void jmp_buf_link::switch_in()
 {
     auto prev = std::exchange(g_current_context, this);
     _link = prev;
-    if (setjmp(prev->_jmpbuf) == 0) {
-        longjmp(_jmpbuf, 1);
-    }
+    g_previous_context = prev;
+    swapcontext(&prev->_context, &_context);
 }
 
 inline void jmp_buf_link::switch_out()
 {
     g_current_context = _link;
-    if (setjmp(_jmpbuf) == 0) {
-        longjmp(g_current_context->_jmpbuf, 1);
-    }
+    g_previous_context = this;
+    swapcontext(&_context, &g_current_context->_context);
 }
 
 inline void jmp_buf_link::initial_switch_in_completed()
@@ -46,14 +43,13 @@ inline void jmp_buf_link::initial_switch_in_completed()
 inline void jmp_buf_link::final_switch_out()
 {
     g_current_context = _link;
-    longjmp(g_current_context->_jmpbuf, 1);
+    g_previous_context = this;
+    setcontext(&g_current_context->_context);
 }
 
 
 // thread_conext
 
-thread_local thread_context::preempted_thread_list thread_context::_preempted_threads;
-thread_local thread_context::all_thread_list thread_context::_all_threads;
 
 thread_context::stack_holder thread_context::make_stack() {
     return stack_holder(new char[_stack_size]);
@@ -71,7 +67,6 @@ void thread_context::setup() {
     auto q = uint64_t(reinterpret_cast<uintptr_t>(this));
     auto main = reinterpret_cast<void (*)()>(&thread_context::s_main);
     auto r = getcontext(&initial_context);
-  //  throw_system_error_on(r == -1);
     if (r == -1) {
         throw std::system_error(errno, std::system_category());
     }
@@ -80,133 +75,48 @@ void thread_context::setup() {
     initial_context.uc_link = nullptr;
     makecontext(&initial_context, main, 2, int(q), int(q >> 32));
     _context._thread = this;
-    _context.initial_switch_in(&initial_context, _stack.get(), _stack_size);
+    _context.initial_switch_in(&initial_context);
 }
 
 void thread_context::main() {
     _context.initial_switch_in_completed();
-    if (_attr.scheduling_group) {
-        _attr.scheduling_group->account_start();
-    }
     try {
         _func();
         _done.set_value();
     } catch (...) {
         _done.set_exception(std::current_exception());
     }
-    if (_attr.scheduling_group) {
-        _attr.scheduling_group->account_stop();
-    }
 
     _context.final_switch_out();
 }
 
-thread_context::thread_context(thread_attributes attr, std::function<void ()> func)
-        : _attr(std::move(attr))
-        , _func(std::move(func)) {
+thread_context::thread_context(std::function<void ()> func):_func(std::move(func)) {
     setup();
-    _all_threads.push_front(*this);
 }
 
 thread_context::~thread_context() {
-    _all_threads.erase(_all_threads.iterator_to(*this));
 }
 
 void thread_context::switch_in() {
-    if (_attr.scheduling_group) {
-        _attr.scheduling_group->account_start();
-        _context._yield_at = _attr.scheduling_group->_this_run_start + _attr.scheduling_group->_this_period_remain;
-    } else {
-        _context._yield_at = {};
-    }
     _context.switch_in();
 }
 
 void thread_context::switch_out() {
-    if (_attr.scheduling_group) {
-        _attr.scheduling_group->account_stop();
-    }
     _context.switch_out();
 }
 
 void thread_context::yield() {
-    if (!_attr.scheduling_group) {
-        later().get();
-    } else {
-        auto when = _attr.scheduling_group->next_scheduling_point();
-        if (when) {
-            _preempted_threads.push_back(*this);
-            _sched_promise.emplace();
-            auto fut = _sched_promise->get_future();
-            _sched_timer.arm(*when);
-            fut.get();
-            _sched_promise = nullopt;
-        } else if (need_preempt()) {
-            later().get();
-        }
-    }
+    later().get();
 }
 
 // thread
-
-template <typename F>
-thread::thread(F func) : thread(thread_attributes(), std::move(func)) {
-}
-
-template <typename F>
-thread::thread(thread_attributes attr, F func)
-        : _context(std::make_unique<thread_context>(std::move(attr), func)) {
-}
 
 future<> thread::join() {
     _context->_joined = true;
     return _context->_done.get_future();
 }
-
 void thread::yield() {
     thread_impl::get()->yield();
-}
-bool thread::should_yield() {
-    return thread_impl::get()->should_yield();
-}
-bool thread::try_run_one_yielded_thread() {
-    if (thread_context::_preempted_threads.empty()) {
-        return false;
-    }
-    auto&& t = thread_context::_preempted_threads.front();
-    t._sched_timer.cancel();
-    t._sched_promise->set_value();
-    thread_context::_preempted_threads.pop_front();
-    return true;
-}
-
-// thread_scheduling_group
-
-thread_scheduling_group::thread_scheduling_group(std::chrono::nanoseconds period, float usage)
-        : _period(period), _quota(std::chrono::duration_cast<std::chrono::nanoseconds>(usage * period)) {
-}
-
-void thread_scheduling_group::account_start() {
-    auto now = thread_clock::now();
-    if (now >= _this_period_ends) {
-        _this_period_ends = now + _period;
-        _this_period_remain = _quota;
-    }
-    _this_run_start = now;
-}
-
-void thread_scheduling_group::account_stop() {
-    _this_period_remain -= thread_clock::now() - _this_run_start;
-}
-
-optional<thread_clock::time_point> thread_scheduling_group::next_scheduling_point() const {
-    auto now = thread_clock::now();
-    auto current_remain = _this_period_remain - (now - _this_run_start);
-    if (current_remain > std::chrono::nanoseconds(0)) {
-        return nullopt;
-    }
-    return _this_period_ends - current_remain;
-
 }
 
 
@@ -216,18 +126,8 @@ thread_context* get() {
     return g_current_context->_thread;
 }
 
-bool should_yield() {
-    if (need_preempt()) {
-        return true;
-    } else if (g_current_context->_yield_at) {
-        return std::chrono::steady_clock::now() >= *(g_current_context->_yield_at);
-    } else {
-        return false;
-    }
-}
-
 void yield() {
-    g_current_context->thread->yield();
+    g_current_context->_thread->yield();
 }
 
 void switch_in(thread_context* to) {
@@ -239,11 +139,20 @@ void switch_out(thread_context* from) {
 }
 
 void init() {
-    g_unthreaded_context.link = nullptr;
-    g_unthreaded_context.thread = nullptr;
+    g_unthreaded_context._link = nullptr;
+    g_unthreaded_context._thread = nullptr;
     g_current_context = &g_unthreaded_context;
 }
 
 }
-
+future<> later() {
+    promise<> p;
+    auto f = p.get_future();
+    engine_schedule(make_task([p = std::move(p)] () mutable {
+        printf("wtf\n");
+        ::sleep(3);
+        p.set_value();
+    }));
+    return f;
+}
 } // xhb namespace

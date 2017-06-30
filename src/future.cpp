@@ -15,58 +15,61 @@ future<T...> make_ready_future(std::tuple<A...>&& tup) {
 
 
 template <typename... T>
-future<T...> make_exception_future(std::exception_ptr expt) {
+future<T...> make_exception_future(std::exception_ptr expt) noexcept {
     return future<T...>(exception_future_marker(), std::move(expt));
 }
 
 template <typename... T, typename E /*exception*/>
-future<T...> make_exception_future(E&& ex) {
+future<T...> make_exception_future(E&& ex) noexcept {
     return make_exception_future<T...>(std::make_exception_ptr(std::forward<E>(ex)));
 }
 
-
-template<typename... T>
-void promise<T...>::migrated() {
-    if (_future) {
-        _future->_promise = this;
+void future_state<>::forward_to(promise<>& pr) noexcept {
+    assert(_state != state::future && _state != state::invalid);
+    if (_state == state::exception) {
+            pr.set_urgent_exception(std::move(_expt));
+    } else {
+        pr.set_urgent_value(std::tuple<>());
     }
-}
-
-template<typename... T>
-void promise<T...>::abandoned() {
-    if (_future) {
-        assert(_state != nullptr);
-        _future->_local_state = std::move(*_state);
-        _future->_promise = nullptr;
-    } else if (_state && _state->failed()) {
-        // log and warn exception ignored.
-    }
-}
-template<typename...T>
-template<typename promise<T...>::urgent U>
-void promise<T...>::make_ready() {
-    if (_task) {
-        _state = nullptr;
-        if (U == urgent::yes && !need_prempt()) {
-            xhb::schedule_urgent(std::move(_task));
-        } else {
-            xhb::schedule(std::move(_task));
-        }
-    }
+    _state = state::invalid;
 }
 
-template<typename...T>
-future<T...> promise<T...>::get_future() {
-    assert(_future == nullptr && _state == nullptr && !_task);
-    return future<T...>(this);
+
+
+
+template <typename T>
+inline
+future<T>
+futurize<T>::from_tuple(std::tuple<T>&& value) {
+    return make_ready_future<T>(std::move(value));
 }
+
+template <typename T>
+inline
+future<T>
+futurize<T>::from_tuple(const std::tuple<T>& value) {
+    return make_ready_future<T>(value);
+}
+
+inline
+future<>
+futurize<void>::from_tuple(std::tuple<>&& value) {
+    return make_ready_future<>();
+}
+
+inline
+future<>
+futurize<void>::from_tuple(const std::tuple<>& value) {
+    return make_ready_future<>();
+}
+
 
 // futurize<T>
 
 template<typename T>
 template<typename E>
 typename futurize<T>::type futurize<T>::make_exception_future(E&& ex) {
-    return xhb::make_exception_future<T>(std::forward<E>(ex);
+    return xhb::make_exception_future<T>(std::forward<E>(ex));
 }
 
 template<typename T>
@@ -100,7 +103,7 @@ template<typename F, typename... As>
 std::enable_if_t<is_future_v<std::result_of_t<F(As&&...)>>, future<>>
 do_void_futurize_apply_args(F&& func, As&&... args) noexcept {
     try {
-        return xhb::apply(func, std::forward<As>(args));
+        return xhb::apply(func, std::forward<As>(args)...);
     } catch (...) {
         return make_exception_future(std::current_exception());
     }
@@ -109,7 +112,7 @@ template<typename F, typename... As>
 std::enable_if_t<!is_future_v<std::result_of_t<F(As&&...)>>, future<>>
 do_void_futurize_apply_args(F&& func, As&&... args) noexcept {
     try {
-        xhb::apply(func, std::forward<As>(args));
+        xhb::apply(func, std::forward<As>(args)...);
         return make_ready_future<>();
     } catch (...) {
         return make_exception_future(std::current_exception());
@@ -157,7 +160,7 @@ future<T...> futurize<future<T...>>::make_exception_future(E&& ex) {
 
 template<typename... T>
 template<typename F, typename... As>
-typename futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, As&&... args) {
+typename futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, As&&... args) noexcept{
     try {
         return xhb::apply(std::forward<F>(func), std::forward<As>(args)...);
     } catch (...) {
@@ -166,7 +169,7 @@ typename futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, As
 }
 template<typename... T>
 template<typename F, typename... As>
-typename futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, std::tuple<As...>&& tup) {
+typename futurize<future<T...>>::type futurize<future<T...>>::apply(F&& func, std::tuple<As...>&& tup) noexcept{
     try {
         return xhb::apply(std::forward<F>(func), std::move(tup));
     } catch (...) {
@@ -193,11 +196,11 @@ template<typename F>
 future<T...> future<T...>::handle_exception_type(F&& func) noexcept {
     using trait = func_traits<F>;
     static_assert(trait::arity == 1, "func can take only one parameter");
-    using ex_type = typename trait::arg_t<0>;
+    using ex_type = typename trait::template arg_t<0>;
     using ret_type = typename trait::return_type;
     return then_wrapped([func = std::forward<F>(func)] (auto&& fut) -> future<T...> {
         try {
-            return make_read_future<T...>(fut.get());
+            return make_ready_future<T...>(fut.get());
         } catch (ex_type& ex) {
             return futurize<ret_type>::apply(func, ex);
         }
