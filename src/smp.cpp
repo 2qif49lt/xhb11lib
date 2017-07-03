@@ -1,6 +1,8 @@
 #include "smp.h"
 #include "reactor.h"
-
+#include "thread.h"
+#include <iostream>
+using namespace std;
 namespace xhb {
 
 struct reactor_deleter {
@@ -84,6 +86,12 @@ static void sigabrt_action() noexcept {
     print_safe("Aborting\n");
 }
 
+int smp::run_one(std::function<void ()>&& func) {
+    allocate_reactor(0);
+    xhb::thread(func());
+    return engine().run();
+}
+
 void smp::configure(resource_config& rc) {
     sigset_t sigs;
     sigfillset(&sigs);
@@ -117,13 +125,13 @@ void smp::configure(resource_config& rc) {
 
     // cpu memory
 
-    static boost::barrier inited(smp::count);
+  //  static boost::barrier inited(smp::count);
     
     unsigned int i;
     for (i = 1; i < smp::count; i++) {
         auto allocation = allocations[i % allocations.size()];
         create_thread([rc, i, allocation, thread_affinity] {
-            stringstream ss;
+            std::stringstream ss;
             ss << "reactor-{" << i << "}";
             auto thread_name = ss.str();
             pthread_setname_np(pthread_self(), thread_name.c_str());
@@ -140,7 +148,7 @@ void smp::configure(resource_config& rc) {
             allocate_reactor(i);
             _reactors[i] = &engine();
 
-            inited.wait();
+        //    inited.wait();
             engine().configure(rc);
             engine().run();
         });
@@ -149,7 +157,7 @@ void smp::configure(resource_config& rc) {
      allocate_reactor(0);
     _reactors[0] = &engine();
 
-    inited.wait();
+   // inited.wait();
     engine().configure(rc);
 
 }

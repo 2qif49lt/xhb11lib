@@ -41,11 +41,11 @@ resource_t allocate_resource(const resource_config& c) {
 
     auto available_memory = ::sysconf(_SC_PAGESIZE) * size_t(::sysconf(_SC_PHYS_PAGES));
     auto mem = calculate_memory(c, available_memory);
-    auto cpuset_procs = SHOULDOR(c.cpu_set.size(), get_pu_count();
+    auto cpuset_procs = SHOULDOR(c.cpu_set.size(), get_pu_count());
     auto procs = SHOULDOR(c.cpus, cpuset_procs);
     ret.cpus.reserve(procs);
     for (unsigned i = 0; i < procs; ++i) {
-        ret.cpus.push_back({i, {0, mem / procs}});
+     //   ret.cpus.push_back(cpu_t{i, {0, mem / procs}});
     }
 
     ret.io_queues = allocate_io_queues(c, ret.cpus);

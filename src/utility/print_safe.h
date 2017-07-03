@@ -2,7 +2,8 @@
 #define XHBLIB_UTILITY_PRINT_SAFE_H_
 
 #include <stdio.h>
-
+#include <string.h>
+#include <unistd.h>
 namespace xhb {
 //
 // Collection of async-signal safe printing functions.

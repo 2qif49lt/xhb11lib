@@ -13,6 +13,7 @@ extern int posix_memalign(void **ptr, size_t align, size_t size);
 #include <memory>
 #include <new> // bad_alloc
 #include <stdexcept>
+#include <string>
 namespace xhb {
 
 
@@ -29,7 +30,9 @@ std::unique_ptr<CharType[], free_deleter> allocate_aligned_buffer(size_t size, s
     if (r == ENOMEM) {
         throw std::bad_alloc();
     } else if (r == EINVAL) {
-        throw std::runtime_error(sprint("Invalid alignment of %d; allocating %d bytes", align, size));
+        char buff[256] = {};
+        sprintf(buff,"Invalid alignment of %d; allocating %d bytes", align, size);
+        throw std::runtime_error(std::string(buff));
     } else {
         assert(r == 0);
         return std::unique_ptr<CharType[], free_deleter>(reinterpret_cast<CharType *>(ret));

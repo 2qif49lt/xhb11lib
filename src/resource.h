@@ -7,6 +7,8 @@
 
 #include <vector>
 #include <set>
+#include <stdexcept>
+using std::size_t;
 
 struct resource_config {
     size_t total_memory; // 用户设置的最大可用内存,如果为0,则为系统最大内存
@@ -60,6 +62,9 @@ struct cpu_set_t {
 
 #endif
 
+#if defined(__linux__)
+#include <sched.h>
+#endif
 cpu_set_t get_cpuset(unsigned int cpuid);
 
 #endif // XHBLIB_UTILITY_CPUID_H_
