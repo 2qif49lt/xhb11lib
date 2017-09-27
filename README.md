@@ -1,5 +1,5 @@
 # xhb11lib
-c++14 future-then-routine  基于seastar  
+c++14 future-then-routine 
 
 ```
 g++ test_utils.cpp ../src/resource.cpp ../src/resource_linux.cpp ../src/thread.cpp ../src/posix.cpp ../src/smp.cpp ../src/reactor.cpp future_test.cpp -O2 -o main -std=c++14  -I../src -lpthread
