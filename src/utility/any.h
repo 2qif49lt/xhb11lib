@@ -1,6 +1,17 @@
 #ifndef XHBLIB_ANY_H_
 #define XHBLIB_ANY_H_
 
+// any 支持有copy-ctor类的包含。
+/*
+    简单用法，详细见 ../../test/any_test.cpp
+    vector<int> vec = {1, 2, 3};
+
+    auto a = xhb::any(vec);
+    auto copy_vec = xhb::any_cast<vector<int>>(a);
+    auto& ref_vec = xhb::any_cast<vector<int>&>(a);
+    ref_vec[0] = 10;
+*/
+
 #include <algorithm>
 #include <initializer_list>
 #include <typeinfo> 
@@ -70,11 +81,11 @@ template <typename T>
 class obj : public obj_base {
 public:
     template <typename... Args>
-    explicit obj(in_place_t, Args&&... args) : _val(std::forward<Args>...) {}
+    explicit obj(in_place_t, Args&&... args) : _val(std::forward<Args>(args)...) {}
 
     std::unique_ptr<obj_base> clone() const final {
         static in_place_t in_place{};
-        return std::unique_ptr<obj_base>(new obj(in_place, _val);
+        return std::unique_ptr<obj_base>(new obj(in_place, _val));
     }
     
     size_t type_id() const noexcept final { return type_id_of<T>(); }
@@ -87,6 +98,8 @@ public:
 
 using any_imp::in_place_t;
 using any_imp::in_place_type_t;
+using any_imp::obj;
+using any_imp::obj_base;
 
 class any;
 
@@ -122,12 +135,13 @@ T* any_cast(any* a) noexcept;
 
 class any {
     std::unique_ptr<any_imp::obj_base> _obj;
+
+public:
     size_t type_id() const {
-        return _obj == nullptr ? any_imp::type_id_of_base<void>() : _obj->type_id()；
+        return _obj == nullptr ? any_imp::type_id_of_base<void>() : _obj->type_id();
     }
 public:
-    // 构造空的的对象
-    constexpr any() noexcept;
+    any() noexcept = default;
 
     // 复制
     any(const any& other) 
@@ -150,15 +164,6 @@ public:
     explicit any(in_place_type_t<T> /*tag*/, Args&&... args) : 
         _obj(new obj<Vt>(in_place_t(), std::forward<Args>(args)...)) {}
     
-    template <typename T, typename U, typename... Args, typename Vt = std::decay_t<T>,
-    absl::enable_if_t<
-        absl::conjunction<std::is_copy_constructible<Vt>,
-                          std::is_constructible<Vt, std::initializer_list<U>&,
-                                                Args...>>::value>* = nullptr>
-    explicit any(in_place_type_t<T> /*tag*/, std::initializer_list<U> il,
-             Args&&... args)
-    : _obj(new obj<Vt>(in_place_t(), il, std::forward<Args>(args)...)) {}
-
 
     any& operator=(const any& rhs) {
         any(rhs).swap(*this);
@@ -194,8 +199,8 @@ public:
                 Args...>::value>* = nullptr>
     Vt& emplace(std::initializer_list<U> il, Args&&... args) {
         reset();  
-        Obj<Vt>* ptr =
-            new Obj<Vt>(in_place_t(), il, std::forward<Args>(args)...);
+        obj<Vt>* ptr =
+            new obj<Vt>(in_place_t(), il, std::forward<Args>(args)...);
         _obj = std::unique_ptr<obj_base>(ptr);
         return ptr->_val;
     }
@@ -203,7 +208,7 @@ public:
     void reset() noexcept { _obj = nullptr; }
     void swap(any& other) noexcept { _obj.swap(other._obj); }
     bool has_value() const noexcept { return _obj != nullptr; }
-    const std::type_info& type const noexcept {
+    const std::type_info& type() const noexcept {
         if (has_value()) {
             return _obj->type();
         }
@@ -214,12 +219,86 @@ public:
     friend U any_cast(const any& a);
     template <typename U>
     friend U any_cast(any& a);
-    
+
     template <typename U>
-    friend const U* any_cast(const any* a);
+    friend const U* any_cast(const any* a) noexcept;
     template <typename U>
-    friend U* any_cast(any* a);
+    friend U* any_cast(any* a) noexcept;
 };
+
+inline void swap(any& x, any& y) { x.swap(y); }
+
+template <typename T, typename... Args>
+any make_any(Args&&... args) {
+    return any(in_place_type_t<T>(), std::forward<Args>(args)...);
+}
+
+template <typename T, typename U, typename... Args>
+any make_any(std::initializer_list<U> il, Args&&... args) {
+    return any(in_place_type_t<T>(), il, std::forward<Args>(args)...);
+}
+
+template <typename T>
+T any_cast(const any& a) {
+    using U = typename std::remove_cv<
+        typename std::remove_reference<T>::type>::type;
+    static_assert(std::is_constructible<T, const U&>::value,
+                "Invalid Type");
+    const auto* rst =  any_cast<U>(&a);
+    if (rst == nullptr) {
+        throw std::bad_cast();
+    }
+    return static_cast<T>(*rst);
+}
+
+template <typename T>
+T any_cast(any& a) {
+    using U = typename std::remove_cv<
+        typename std::remove_reference<T>::type>::type;
+    static_assert(std::is_constructible<T, U&>::value,
+                "Invalid Type");
+    auto* rst =  any_cast<U>(&a);
+    if (rst == nullptr) {
+        throw std::bad_cast();
+    }
+    return static_cast<T>(*rst);
+}
+
+template <typename T>
+T any_cast(any&& a) {
+    using U = typename std::remove_cv<
+        typename std::remove_reference<T>::type>::type;
+    static_assert(std::is_constructible<T, U>::value,
+                "Invalid Type");
+  
+    return static_cast<T>(std::move((any_cast<U&>)(a)));
+}
+
+// 下面的重载转化失败返回nullptr
+template <typename T>
+const T* any_cast(const any* a) noexcept {
+    if (a == nullptr) {
+        return nullptr;
+    }
+    if (a->type_id() == any_imp::type_id_of<T>()) {
+        return std::addressof(
+            static_cast<const any_imp::obj<T>*>(a->_obj.get())->_val);
+    }
+    return nullptr;
+}
+
+template <typename T>
+T* any_cast(any* a) noexcept {
+    if (a == nullptr) {
+        return nullptr;
+    }
+    if (a->type_id() == any_imp::type_id_of<T>()) {
+        return std::addressof(
+            static_cast<any_imp::obj<T>*>(a->_obj.get())->_val);
+    }
+    return nullptr; 
+}
+
 
 } // ns xhb
 
