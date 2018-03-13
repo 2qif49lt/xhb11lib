@@ -6,6 +6,7 @@
 
 namespace xhb {
 
+// vector
 struct type_descriptor_vec : type_descriptor {
     type_descriptor* _desc;
     size_t (*_length)(const void*);
@@ -58,7 +59,7 @@ struct type_resolver<std::vector<T>> {
     }
 };
 
-
+// string
 struct type_descriptor_string : type_descriptor {
     type_descriptor_string() :type_descriptor("std::string", sizeof(std::string)) {}
     virtual std::string dump(const void* obj, int lev) const override {
@@ -73,6 +74,44 @@ type_descriptor* get_primitive_descri<std::string>() {
     static type_descriptor_string desc;
     return &desc;
 }
+
+
+// unique_ptr
+
+struct type_descriptor_unique_ptr : type_descriptor {
+    type_descriptor* _desc;
+    const void* (*_item)(const void*);
+    
+    template <typename T>
+    type_descriptor_unique_ptr(T*) : type_descriptor("std::unique_ptr<>", sizeof(std::unique_ptr<T>)), 
+        _desc(type_resolver<T>::get()) {
+            _item = [](const void* obj) -> const void* {
+                auto p = static_cast<const std::unique_ptr<T>*>(obj);
+                return p->get();
+            };
+        }
+    virtual std::string name() const override {
+        return std::string("std::unique_ptr<") + _desc->name() + ">";
+    }
+
+    virtual std::string dump(const void* obj, int lev) const override {
+        std::stringstream ss;
+
+        ss << name() << "{";
+        ss << _desc->dump(_item(obj), lev + 1);
+        ss << "}";
+        return ss.str();
+        
+    }
+};
+template <typename T>
+struct type_resolver<std::unique_ptr<T>> {
+    static type_descriptor* get() {
+        static type_descriptor_unique_ptr _desc{(T*)nullptr};
+        return &_desc;
+    }
+};
+
 
 } // xhb ns
 #endif // XHBLIB_REFLECT_VECTOR_H_

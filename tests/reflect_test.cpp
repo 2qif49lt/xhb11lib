@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <type_traits>
+#include <memory>
 #include <cassert>
 using namespace std;
 
@@ -106,11 +107,85 @@ XHB_REFLECT_STRUCT_MEMBER(value)
 XHB_REFLECT_STRUCT_MEMBER(children)
 XHB_REFLECT_STRUCT_END()
 
+
 TEST_CASE(reflect_struct_t) {
-    
-    st s = {"apple", 3, {{"banana", 7, {}}, {"cherry", 11, {}}}};
+
+    st s{"apple", 3, {{"banana", 7, {}}, {"cherry", 11, {}}}};
     auto desc_struct = xhb::type_resolver<st>::get();
     cout << desc_struct->name() << " " << desc_struct->size() << " " << desc_struct->dump(&s) << endl;
     
+    return 0;
+}
+
+
+struct stp {
+    std::string key;
+    int value;
+    std::unique_ptr<int> ptr;
+
+    XHB_REFLECT()     
+}; 
+
+XHB_REFLECT_STRUCT_BEGIN(stp)
+XHB_REFLECT_STRUCT_MEMBER(key)
+XHB_REFLECT_STRUCT_MEMBER(value)
+XHB_REFLECT_STRUCT_MEMBER(ptr)
+XHB_REFLECT_STRUCT_END()
+
+
+TEST_CASE(reflect_struct_ptr_t) {
+
+    stp s{"apple", 3, make_unique<int>(10)};
+    auto desc_struct = xhb::type_resolver<stp>::get();
+    cout << desc_struct->name() << " " << desc_struct->size() << " " << desc_struct->dump(&s) << endl;
+    
+    return 0;
+}
+
+struct stall {
+    std::string key;
+    int value;
+    std::unique_ptr<int> ptr;
+    st s;
+    XHB_REFLECT()     
+}; 
+
+XHB_REFLECT_STRUCT_BEGIN(stall)
+XHB_REFLECT_STRUCT_MEMBER(key)
+XHB_REFLECT_STRUCT_MEMBER(value)
+XHB_REFLECT_STRUCT_MEMBER(ptr)
+XHB_REFLECT_STRUCT_MEMBER(s)
+
+XHB_REFLECT_STRUCT_END()
+
+TEST_CASE(reflect_struct_all_t) {
+
+    stall s{"apple", 3, make_unique<int>(10),{"apple", 3, {{"banana", 7, {}}, {"cherry", 11, {}}}}};
+    auto desc_struct = xhb::type_resolver<stall>::get();
+    cout << desc_struct->name() << " " << desc_struct->size() << " " << desc_struct->dump(&s) << endl;
+    
+    /*
+    stall {
+        key = std::string{"apple"}
+        value = int{3}
+        ptr = std::unique_ptr<int>{int{10}}
+        s = st {
+            key = std::string{"apple"}
+            value = int{3}
+            children = std::vector<st>{
+                [0]st {
+                    key = std::string{"banana"}
+                    value = int{7}
+                    children = std::vector<st>{}
+                }
+                [1]st {
+                    key = std::string{"cherry"}
+                    value = int{11}
+                    children = std::vector<st>{}
+                }
+            }
+        }
+    }
+    */
     return 0;
 }
