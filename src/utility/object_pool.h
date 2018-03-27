@@ -8,8 +8,12 @@ lock-free、多生产消费者、固定长度、环形数组、对象池
 #include <atomic>
 #include <functional>
 
-#include "likely.h"
-#include "spinlock.h"
+#ifdef XHBLIB_OBJ_POOL_UNIT_TEST
+#include <vector>
+#endif
+
+#include "likely.h" // for likely(x)
+#include "spinlock.h" // for _mm_pause
 
 namespace xhb {
 
@@ -20,7 +24,7 @@ namespace obj_pool_impl {
 
 template <typename T, uint32_t POOL_SIZE = 128, typename Alloc = std::allocator<T>>
 class obj_pool final :public Alloc {
-    static_assert((POOL_SIZE & (POOL_SIZE - 1)) == 0, "pool_size must be a power of 2.");
+    static_assert((POOL_SIZE & (POOL_SIZE - 1)) == 0 && POOL_SIZE <= (2 << 12), "pool_size must be a power of 2.");
     static constexpr uint32_t MASK = POOL_SIZE - 1;
     static constexpr uint32_t cache_line_size = 64;
 
@@ -39,8 +43,15 @@ private:
 
     using my_type = obj_pool<T,POOL_SIZE,Alloc>;
     using alloc_traits = std::allocator_traits<Alloc>;
+    
+public:
+#ifdef XHBLIB_OBJ_POOL_UNIT_TEST
+    std::atomic<uint32_t> _allocate_counter{0};
+    std::atomic<uint32_t> _deallocate_counter{0};
+#endif 
 
 public:
+
     obj_pool() = default;
     ~obj_pool() {
         // 析构函数应该在其他线程未调用接口后单独进行。
@@ -75,7 +86,7 @@ public:
         return  prod_tail - cons_head;
     }
 
-    void put(T* ptr) {
+    void put_raw(T* ptr) {
         uint32_t prod_head, prod_next;
         
         do {
@@ -84,9 +95,11 @@ public:
             uint32_t free_entries = MASK + cons_tail - prod_head;
             
             if(unlikely(free_entries == 0)) {
+#ifdef XHBLIB_OBJ_POOL_UNIT_TEST
+                _deallocate_counter.fetch_add(1, std::memory_order_relaxed);;
+#endif 
                 alloc_traits::destroy(*this, ptr);
                 alloc_traits::deallocate(*this, ptr, 1);
-                delete ptr;
                 return;
             }
 
@@ -115,6 +128,9 @@ public:
             uint32_t entries = prod_tail - cons_head;
             
             if(unlikely(entries == 0)) {
+#ifdef XHBLIB_OBJ_POOL_UNIT_TEST
+                _allocate_counter.fetch_add(1, std::memory_order_relaxed);;
+#endif 
                 ret = alloc_traits::allocate(*this, 1);
                 alloc_traits::construct(*this, ret, std::forward<Args>(args)...);
                 return ret;
@@ -142,11 +158,22 @@ public:
     template <typename... Args>
     auto get(Args&&... args) {
         T* raw_ptr = get_raw(std::forward<Args>(args)...);
-        auto deleter = [this](T* ptr)mutable { this->put(ptr); };
+        auto deleter = [this](T* ptr)mutable { this->put_raw(ptr); };
         std::unique_ptr<T,std::function<void(T*)>> ret{raw_ptr, deleter};
         
         return ret;
     }
+#ifdef XHBLIB_OBJ_POOL_UNIT_TEST
+    void dump(std::vector<T*>& vec) {
+        auto cons_head = _cons_head.load(std::memory_order_relaxed);
+        auto prod_tail = _prod_tail.load(std::memory_order_relaxed);
+
+        for (; cons_head != prod_tail; cons_head++) {
+            auto idx = cons_head & MASK;
+            vec.push_back(_objs[idx]._data);
+        }
+    }
+#endif
 };
 
 } // xhb ns
