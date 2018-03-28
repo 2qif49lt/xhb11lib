@@ -43,11 +43,13 @@ private:
 
     using my_type = obj_pool<T,POOL_SIZE,Alloc>;
     using alloc_traits = std::allocator_traits<Alloc>;
-    
+
 public:
 #ifdef XHBLIB_OBJ_POOL_UNIT_TEST
     std::atomic<uint32_t> _allocate_counter{0};
     std::atomic<uint32_t> _deallocate_counter{0};
+    std::atomic<uint64_t> _allocate_all{0};
+    std::atomic<uint64_t> _deallocate_all{0}; 
 #endif 
 
 public:
@@ -96,10 +98,11 @@ public:
             
             if(unlikely(free_entries == 0)) {
 #ifdef XHBLIB_OBJ_POOL_UNIT_TEST
-                _deallocate_counter.fetch_add(1, std::memory_order_relaxed);;
-#endif 
+                _deallocate_counter.fetch_add(1, std::memory_order_relaxed);
+                _deallocate_all.fetch_add(ptr->_i, std::memory_order_relaxed);
+#endif
                 alloc_traits::destroy(*this, ptr);
-                alloc_traits::deallocate(*this, ptr, 1);
+                alloc_traits::deallocate(*this, ptr, 1); 
                 return;
             }
 
@@ -128,11 +131,14 @@ public:
             uint32_t entries = prod_tail - cons_head;
             
             if(unlikely(entries == 0)) {
-#ifdef XHBLIB_OBJ_POOL_UNIT_TEST
-                _allocate_counter.fetch_add(1, std::memory_order_relaxed);;
-#endif 
                 ret = alloc_traits::allocate(*this, 1);
                 alloc_traits::construct(*this, ret, std::forward<Args>(args)...);
+
+#ifdef XHBLIB_OBJ_POOL_UNIT_TEST
+                auto pre = _allocate_counter.fetch_add(1, std::memory_order_relaxed);
+                ret->_i = pre;
+                _allocate_all.fetch_add(pre, std::memory_order_relaxed);
+#endif 
                 return ret;
             }
             cons_next = cons_head + 1;
