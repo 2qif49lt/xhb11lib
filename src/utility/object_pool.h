@@ -35,11 +35,11 @@ private:
     };
     item _objs[POOL_SIZE];
 
-    std::atomic<uint32_t> _prod_head{0};
-    std::atomic<uint32_t> _prod_tail{0};
+    std::atomic<uint32_t> _prod_head = {0};
+    std::atomic<uint32_t> _prod_tail = {0};
 
-    std::atomic<uint32_t> _cons_head{0};
-    std::atomic<uint32_t> _cons_tail{0};
+    std::atomic<uint32_t> _cons_head = {0};
+    std::atomic<uint32_t> _cons_tail = {0};
 
     using my_type = obj_pool<T,POOL_SIZE,Alloc>;
     using alloc_traits = std::allocator_traits<Alloc>;
